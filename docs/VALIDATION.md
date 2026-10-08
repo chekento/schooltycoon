@@ -15,9 +15,11 @@ Datum: **2026-10-08**.
 | Startszene und Build-Szenenreferenz | Bestanden |
 | Input-Manager-Achsen und aktiver klassischer Input | Bestanden |
 | Mitgelieferter Shader im Resources-Ordner | Bestanden |
+| GitHub-Upload: alle 58 Projektdateien auf `main` in `chekento/schooltycoon` | Bestanden |
+| GitHub Actions: Projektstruktur, .NET 8 / NUnit 3.13.3 | **22 bestanden, 0 fehlgeschlagen** |
 | uGUI-2.0.0-Assemblyname mit Unitys offizieller 6000.0-Quelle abgeglichen | `UnityEngine.UI` bestätigt |
 
-Die separat ausgeführten Tests verwendeten NUnit 2.6.4 und Mono 6.8. Der GitHub-Prüfworkflow verwendet .NET 8 und NUnit 3.13.3; dieser Workflow wird nach dem ersten Push ausgeführt. Die Unity-Testumgebung verwendet das Unity Test Framework 1.6.0. Diese verschiedenen Ausführungsumgebungen sind ausdrücklich nicht als bereits gleichfalls geprüft dargestellt.
+Die lokalen Tests verwendeten NUnit 2.6.4 und Mono 6.8. Zusätzlich lief derselbe Testsatz erfolgreich in GitHub Actions mit .NET 8 und NUnit 3.13.3: [erster erfolgreicher Prüflauf](https://github.com/chekento/schooltycoon/actions/runs/37841114407). Die Unity-Testumgebung verwendet das Unity Test Framework 1.6.0; deren Ausführung im Editor ist noch ausstehend.
 
 ## Noch ausstehend
 
@@ -27,7 +29,6 @@ Die separat ausgeführten Tests verwendeten NUnit 2.6.4 und Mono 6.8. Der GitHub
 - Speichern und Wiederherstellen mit Unitys `JsonUtility` auf den jeweiligen Plattformen.
 - Windows-, Linux-, WebGL- und Android-Builds.
 - APK-Installation und Spieltest auf einem Android-Gerät.
-- GitHub-Upload und erste Actions-Ausführung.
 
 **Keine fertige Anwendung / APK ist Teil dieses Projektpakets.** Die beiliegende Campusillustration ist eine Illustration des Stils und Raumkonzepts, kein Screenshot oder Beleg eines Unity-Renders.
 
