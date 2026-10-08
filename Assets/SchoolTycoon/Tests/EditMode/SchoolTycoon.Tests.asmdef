@@ -1,0 +1,8 @@
+{
+  "name": "SchoolTycoon.Tests",
+  "rootNamespace": "KoSch.SchoolTycoon.Tests",
+  "references": ["SchoolTycoon.Core"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

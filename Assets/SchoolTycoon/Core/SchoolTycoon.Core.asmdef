@@ -1,0 +1,7 @@
+{
+  "name": "SchoolTycoon.Core",
+  "rootNamespace": "KoSch.SchoolTycoon.Core",
+  "references": [],
+  "noEngineReferences": true,
+  "autoReferenced": true
+}

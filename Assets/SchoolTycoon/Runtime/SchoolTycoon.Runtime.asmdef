@@ -1,0 +1,6 @@
+{
+  "name": "SchoolTycoon.Runtime",
+  "rootNamespace": "KoSch.SchoolTycoon",
+  "references": ["SchoolTycoon.Core", "UnityEngine.UI"],
+  "autoReferenced": true
+}

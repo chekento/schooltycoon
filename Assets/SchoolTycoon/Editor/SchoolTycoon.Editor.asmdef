@@ -1,0 +1,6 @@
+{
+  "name": "SchoolTycoon.Editor",
+  "rootNamespace": "KoSch.SchoolTycoon.Editor",
+  "references": ["SchoolTycoon.Core", "SchoolTycoon.Runtime"],
+  "includePlatforms": ["Editor"]
+}

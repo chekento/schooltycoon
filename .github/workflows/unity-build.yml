@@ -1,0 +1,39 @@
+name: Unity build (licensed runner)
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Build target (install this module in Unity Hub on the runner)
+        type: choice
+        default: Windows
+        options: [Windows, Linux, Android, WebGL]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: [self-hosted, unity]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and build with the installed, activated Unity editor
+        shell: bash
+        env:
+          BUILD_TARGET: ${{ inputs.target }}
+        run: |
+          if [ -z "$UNITY_EDITOR" ]; then
+            echo 'Set UNITY_EDITOR on your licensed self-hosted runner.'
+            exit 1
+          fi
+          "$UNITY_EDITOR" -batchmode -quit -projectPath "$GITHUB_WORKSPACE" \
+            -executeMethod "KoSch.SchoolTycoon.Editor.SchoolBuild.$BUILD_TARGET" \
+            -logFile "$GITHUB_WORKSPACE/unity-build.log"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: TheSchoolSimulation-0.2.0-${{ inputs.target }}
+          path: Builds/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Unity-build-log
+          path: unity-build.log

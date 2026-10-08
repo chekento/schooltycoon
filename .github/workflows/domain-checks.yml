@@ -1,0 +1,19 @@
+name: Simulation checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  domain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate Unity project structure
+        run: python3 tools/validate_project.py
+      - name: Compile and run the actual domain tests
+        run: dotnet run --project tools/SchoolDomainTests.csproj --configuration Release
