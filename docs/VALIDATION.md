@@ -19,8 +19,9 @@ Datum: **2026-10-08**. Dieses Dokument unterscheidet ausführbare Domain-Prüfun
 | C#-Syntax aller 14 Quelldateien mit Tree-sitter geprüft | Bestanden |
 | Unity-Dateistruktur, Metadaten und eindeutige GUIDs | Bestanden: 27 GUIDs |
 | Startszene, Build-Szenenreferenz, Input-Manager-Achsen und Runtime-Shader | Bestanden |
+| GitHub Actions mit .NET 8 und NUnit 3.13.3 | **55 bestanden, 0 fehlgeschlagen** |
 
-Lokale Domain-Prüfungen verwendeten NUnit 2.6.4. GitHub Actions führt denselben Testsatz mit .NET 8 und NUnit 3.13.3 aus: [Simulation checks](https://github.com/chekento/schooltycoon/actions). Der aktuelle CI-Prüflauf wird nach der Übertragung dieser Version ergänzt. Unity selbst verwendet das Unity Test Framework 1.6.0; dessen Ausführung im Editor ist noch ausstehend.
+Lokale Domain-Prüfungen verwendeten NUnit 2.6.4. GitHub Actions führt denselben Testsatz mit .NET 8 und NUnit 3.13.3 aus: [Simulation checks](https://github.com/chekento/schooltycoon/actions). Für Version 0.3.0 wurden dort ebenfalls **55 Tests erfolgreich** ausgeführt: [erfolgreicher Prüflauf](https://github.com/chekento/schooltycoon/actions/runs/37845868592). Unity selbst verwendet das Unity Test Framework 1.6.0; dessen Ausführung im Editor ist noch ausstehend.
 
 ## Noch ausstehend
 
