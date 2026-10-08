@@ -59,6 +59,10 @@ namespace KoSch.SchoolTycoon
         }
         public string RoleName(StaffRole r)
         { return r == StaffRole.Teacher ? T("Lehrkraft", "Teacher") : r == StaffRole.Caretaker ? T("Hausdienst", "Caretaker") : T("Schulberatung", "Counselor"); }
+        public string ResearchName(ResearchKind kind) { var spec = AcademyCatalog.Research[(int)kind]; return T(spec.NameDe, spec.NameEn); }
+        public string ClubName(ClubKind kind) { var spec = AcademyCatalog.Clubs[(int)kind]; return T(spec.NameDe, spec.NameEn); }
+        public string SeasonName() { return T(new[] { "Frühling", "Sommer", "Herbst", "Winter" }[Simulation.Season], new[] { "Spring", "Summer", "Autumn", "Winter" }[Simulation.Season]); }
+        public string WeatherName() { return T(new[] { "Sonnig", "Bewölkt", "Regen" }[(int)Simulation.Weather], new[] { "Sunny", "Cloudy", "Rainy" }[(int)Simulation.Weather]); }
         public void ChooseBuild(RoomKind? kind, bool demolish = false)
         {
             BuildKind = kind; Demolition = demolish; Rotated = false;
@@ -94,6 +98,7 @@ namespace KoSch.SchoolTycoon
             Ledger l = State.LastLedger;
             UI.Notify(T("Tag ", "Day ") + l.Day + "  ·  " + (l.Net >= 0 ? "+" : "") + l.Net + " €  ·  " + l.Joined + T(" neue Schüler", " new students"));
             Save(false); UI.ShowPending();
+            if (!UI.HasModal && (State.DailyReport.TermFinished > 0 || State.DailyReport.ResearchFinished >= 0 || State.DailyReport.NewAchievements > 0)) UI.ShowDayReport();
         }
         public void CompleteDirector(Avatar avatar)
         {
@@ -132,6 +137,12 @@ namespace KoSch.SchoolTycoon
                 case "disconnect": return T("Damit würdest du einen anderen Raum vom Eingang trennen.", "This would disconnect another room from the entrance.");
                 case "blocked": return T("Beantworte zuerst das Ereignis oder beginne eine neue Schule.", "Resolve the event or start a new school first.");
                 case "owned": return T("Du besitzt bereits den gesamten Campus.", "You already own the whole campus.");
+                case "full": return T("Diese Klasse hat keine freien Plätze.", "This class has no free seats.");
+                case "maxed": return T("Die höchste Entwicklungsstufe ist erreicht.", "The highest upgrade level has been reached.");
+                case "done": return T("Das ist bereits erledigt. Förderung ist einmal pro Schüler und Tag möglich.", "Already completed. Each pupil can receive one intervention per day.");
+                case "busy": return T("Schließe zuerst das laufende Forschungsprojekt ab.", "Finish the current research project first.");
+                case "researchlocked": return T("Forschung benötigt eine Bibliothek und die angegebene Schulstufe.", "Research needs a library and the stated school level.");
+                case "facility": return T("Für diese AG fehlt noch der passende Raum.", "This club needs its matching room first.");
                 default: return T("Diese Aktion ist nicht verfügbar.", "This action is unavailable.");
             }
         }
@@ -139,7 +150,7 @@ namespace KoSch.SchoolTycoon
 
     public static class SchoolSave
     {
-        private static string PathName { get { return Path.Combine(Application.persistentDataPath, "school-v2.json"); } }
+        private static string PathName { get { return Path.Combine(Application.persistentDataPath, "school-v3.json"); } }
         public static bool Write(SchoolState s, out string error)
         {
             error = null;
@@ -160,7 +171,8 @@ namespace KoSch.SchoolTycoon
         public static SchoolState Load(out string error)
         {
             error = null;
-            foreach (string path in new[] { PathName, PathName + ".bak" })
+            string legacy = Path.Combine(Application.persistentDataPath, "school-v2.json");
+            foreach (string path in new[] { PathName, PathName + ".bak", legacy, legacy + ".bak" })
             {
                 if (!File.Exists(path)) continue;
                 try
@@ -168,7 +180,7 @@ namespace KoSch.SchoolTycoon
                     var info = new FileInfo(path);
                     if (info.Length > 2 * 1024 * 1024) throw new InvalidDataException("Oversized save");
                     SchoolState s = JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));
-                    if (SchoolSimulation.ValidateSave(s)) return s;
+                    if (SchoolSimulation.MigrateSave(s)) return s;
                     throw new InvalidDataException("Invalid save");
                 }
                 catch (Exception e) { error = e.Message; Debug.LogWarning("School load: " + e.Message); }

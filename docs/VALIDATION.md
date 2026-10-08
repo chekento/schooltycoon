@@ -1,38 +1,40 @@
-# Prüfstand — 0.2.0
+# Prüfstand — 0.3.0
 
-Datum: **2026-10-08**.
+Datum: **2026-10-08**. Dieses Dokument unterscheidet ausführbare Domain-Prüfungen von noch ausstehenden Unity-Prüfungen.
 
 ## Durchgeführt
 
 | Prüfung | Ergebnis |
 | --- | --- |
-| Pure C#-Simulation mit Mono C# Compiler kompiliert | Bestanden |
-| Dieselben NUnit-Testmethoden aus dem Unity-Testordner separat ausgeführt | **22 bestanden, 0 fehlgeschlagen** |
-| Kampagnentest: alle sieben Förderziele bis mindestens 96 Schüler erreichbar | Bestanden |
-| 60-Tage-Test: Kapazität, Solvenz und valide Speicherzustände | Bestanden |
-| C#-Syntax aller zehn Quelldateien mit Tree-sitter geprüft | Bestanden |
-| Unity-Dateistruktur, Asset-Metadaten und eindeutige GUIDs | Bestanden |
-| Startszene und Build-Szenenreferenz | Bestanden |
-| Input-Manager-Achsen und aktiver klassischer Input | Bestanden |
-| Mitgelieferter Shader im Resources-Ordner | Bestanden |
-| GitHub-Upload: alle 58 Projektdateien auf `main` in `chekento/schooltycoon` | Bestanden |
-| GitHub Actions: Projektstruktur, .NET 8 / NUnit 3.13.3 | **22 bestanden, 0 fehlgeschlagen** |
-| uGUI-2.0.0-Assemblyname mit Unitys offizieller 6000.0-Quelle abgeglichen | `UnityEngine.UI` bestätigt |
+| Pure C#-Simulation mit Mono 6.8 kompiliert | Bestanden |
+| Dieselben NUnit-Testmethoden aus dem Unity-Testordner separat ausgeführt | **55 bestanden, 0 fehlgeschlagen** |
+| Ursprüngliche Kampagne bis zu allen sieben Förderzielen und mindestens 96 Schülern | Bestanden |
+| Gesamtkampagne mit allen vier Forschungen, fünf AGs und freiem Weiterspielen | Bestanden |
+| Langzeitablauf über 660 Schultage: Versetzung, Abschlüsse, Neuaufnahme und begrenzte Historien | Bestanden |
+| Eigenständige Klassenpläne, Lehrerwechsel, Schülerwechsel und tatsächliche Finanzierung | Bestanden |
+| Individuelle Förderung, Lernfortschritt, Abwesenheit und Prüfungen | Bestanden |
+| Einmalige Forschungs-, Ausstattungs-, Fortbildungs- und Ausbaukosten | Bestanden |
+| Wiederaufnahme pausierter AGs ohne neue Ausstattungsgebühr | Bestanden |
+| Migration gültiger v2-Stände und Ablehnung beschädigter / unbekannter Formate | Bestanden |
+| C#-Syntax aller 14 Quelldateien mit Tree-sitter geprüft | Bestanden |
+| Unity-Dateistruktur, Metadaten und eindeutige GUIDs | Bestanden: 27 GUIDs |
+| Startszene, Build-Szenenreferenz, Input-Manager-Achsen und Runtime-Shader | Bestanden |
 
-Die lokalen Tests verwendeten NUnit 2.6.4 und Mono 6.8. Zusätzlich lief derselbe Testsatz erfolgreich in GitHub Actions mit .NET 8 und NUnit 3.13.3: [erster erfolgreicher Prüflauf](https://github.com/chekento/schooltycoon/actions/runs/37841114407). Die Unity-Testumgebung verwendet das Unity Test Framework 1.6.0; deren Ausführung im Editor ist noch ausstehend.
+Lokale Domain-Prüfungen verwendeten NUnit 2.6.4. GitHub Actions führt denselben Testsatz mit .NET 8 und NUnit 3.13.3 aus: [Simulation checks](https://github.com/chekento/schooltycoon/actions). Der aktuelle CI-Prüflauf wird nach der Übertragung dieser Version ergänzt. Unity selbst verwendet das Unity Test Framework 1.6.0; dessen Ausführung im Editor ist noch ausstehend.
 
 ## Noch ausstehend
 
-- Import und vollständige C#-Kompilierung im Unity-Editor.
-- Shader-Kompilierung, tatsächliches Rendering und visuelle Prüfung im Spiel.
-- Menübedienung, Bildschirmgrößen, Touchgesten, Kamerasteuerung und Figurenwege in Play Mode.
-- Speichern und Wiederherstellen mit Unitys `JsonUtility` auf den jeweiligen Plattformen.
-- Windows-, Linux-, WebGL- und Android-Builds.
-- APK-Installation und Spieltest auf einem Android-Gerät.
+- Import und vollständige C#-Kompilierung im Unity-Editor, einschließlich Runtime- und UI-Assemblies.
+- Shader-Kompilierung, Rendering, saisonale Farben und Sichtbarkeit der Ausbaustufen.
+- Tatsächliche Bedienung aller acht Menüs, Modalfenster, Namen, Profile und Berichte.
+- Bildschirmgrößen, Touchgesten, Kamerasteuerung und Figurenwege in Play Mode.
+- JSON-Speicherung und v2-Migration mit Unitys `JsonUtility` auf den Zielplattformen.
+- Windows-, Linux-, WebGL- und Android-Builds; APK-Installation und Spieltest am Gerät.
+- WebGL-Persistenz nach dem Schließen und erneuten Öffnen des Browsers.
 
-**Keine fertige Anwendung / APK ist Teil dieses Projektpakets.** Die beiliegende Campusillustration ist eine Illustration des Stils und Raumkonzepts, kein Screenshot oder Beleg eines Unity-Renders.
+Die konkrete Bedienungs- und Plattformprüfliste steht in [PLAYTEST.md](PLAYTEST.md). **Keine geprüfte fertige Anwendung oder APK liegt bei.** Die Campusillustration ist kein Unity-Screenshot.
 
-## Tests selbst wiederholen
+## Prüfungen wiederholen
 
 Unity: **Window → General → Test Runner → EditMode → Run All**.
 
@@ -43,7 +45,7 @@ python3 tools/validate_project.py
 dotnet run --project tools/SchoolDomainTests.csproj --configuration Release
 ```
 
-Die Domain-Tests prüfen unter anderem: verbundene Räume, gedrehte Bauflächen, fehlendes Geld, einmalige Baukosten, einmalige Fördergelder, Personalbedarf, Nichtüberbelegung, Tagesabrechnung, Rückbau, Wegsuche, Ereignissperren, kostenlose Ereignisentscheidung bei Schulden, Speicherstandsvalidierung und Zahlungsunfähigkeit.
+Die Testdateien `SchoolSimulationTests.cs` und `AcademyTests.cs` bilden eine gemeinsame Fixture. Beide werden im Unity-Testordner und vom separat laufenden Testprojekt verwendet. Der separate Runner führt ausschließlich Domain-Tests aus, keine Unity-Menüs oder Grafik.
 
 ## Technische Quellen
 

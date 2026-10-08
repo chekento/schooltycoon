@@ -119,8 +119,8 @@ namespace KoSch.SchoolTycoon
             if (people != null) { people.gameObject.SetActive(false); Destroy(people.gameObject); }
             buildings = Group("Rooms", transform); people = Group("People", transform); agents.Clear();
             foreach (Room room in app.State.Rooms) RoomVisual(room);
-            int studentVisuals = Mathf.Min(app.State.Students, 64);
-            for (int i = 0; i < studentVisuals; i++) Person(i, false, null);
+            foreach (Pupil pupil in app.State.Pupils.Where(p => !p.Absent).Take(64)) Person(pupil.Id, false, null, false, pupil);
+            RenderSettings.ambientLight = app.Simulation.Weather == WeatherKind.Rainy ? ColorHex("AABBC6") : ColorHex("D7DECE");
             for (int i = 0; i < Mathf.Min(app.State.Staff.Count, 24); i++) Person(i + 100, true, app.State.Staff[i]);
             if (app.State.HasDirector) Person(201, true, new Employee { Name = app.State.Director.Name, Role = StaffRole.Counselor }, true);
         }
@@ -131,7 +131,7 @@ namespace KoSch.SchoolTycoon
             p.localPosition = new Vector3(room.X, 0, room.Y);
             float w = room.Width, h = room.Height;
             Box(p, "Floor edge", w / 2, .055f, h / 2, w - .02f, .11f, h - .02f, "849CA3");
-            Box(p, "Floor", w / 2, .12f, h / 2, w - .1f, .04f, h - .1f, spec.Hex);
+            Box(p, "Floor", w / 2, .12f, h / 2, w - .1f, .04f, h - .1f, (room.Kind == RoomKind.Garden ? new[] { "8CCB7A", "91BC6C", "CAA96C", "B8CBCB" }[app.Simulation.Season] : spec.Hex));
             if (room.Kind == RoomKind.Corridor)
             {
                 for (int x = 0; x < room.Width; x++) for (int z = 0; z < room.Height; z++)
@@ -165,7 +165,16 @@ namespace KoSch.SchoolTycoon
                 Vector3 position = new Vector3((door.X + inside.X) * .5f + .5f - room.X, .17f, (door.Y + inside.Y) * .5f + .5f - room.Y);
                 Box(p, "Door mat", position.x, position.y, position.z, door.X != inside.X ? .35f : .7f, .07f, door.X != inside.X ? .7f : .35f, "6FA9A5");
             }
-            Label(p, app.RoomName(room.Kind), new Vector3(w / 2, 1.8f, h / 2), .115f, "234B5B", true);
+            SchoolClass group = app.State.Classes.FirstOrDefault(c => c.RoomId == room.Id);
+            string title = group == null ? app.RoomName(room.Kind) : group.Name + " · " + app.Simulation.ClassSize(group) + "/" + app.Simulation.RoomSeats(room);
+            if (room.UpgradeLevel > 0) title += " " + new string('★', room.UpgradeLevel);
+            Label(p, title + (room.Condition < 50 ? " !" : ""), new Vector3(w / 2, 1.8f, h / 2), .115f, room.Condition < 50 ? "A95B4B" : "234B5B", true);
+            if (room.UpgradeLevel > 0 && room.Kind != RoomKind.Garden)
+            {
+                Box(p, "Upgrade display", w - .65f, .98f, h - .15f, .7f, .46f, .04f, "347E83");
+                Box(p, "Display glass", w - .65f, .99f, h - .18f, .6f, .35f, .02f, "A1E6D7");
+            }
+            if (room.Condition < 65) Box(p, "Wear marker", w - .45f, .15f, .4f, .42f, .015f, .3f, "A1957E");
         }
         private void Desk(Transform p, float x, float z, string top = "D8B67A")
         {
@@ -252,9 +261,9 @@ namespace KoSch.SchoolTycoon
             mesh.fontSize = 48; mesh.color = ColorHex(hex); mesh.anchor = TextAnchor.MiddleCenter;
             if (billboard) t.gameObject.AddComponent<CampusBillboard>();
         }
-        private void Person(int index, bool adult, Employee employee, bool director = false)
+        private void Person(int index, bool adult, Employee employee, bool director = false, Pupil pupil = null)
         {
-            Transform p = Group(adult ? employee.Name : "Student " + index, people);
+            Transform p = Group(adult ? employee.Name : pupil.Name, people);
             float scale = adult ? .86f : .68f;
             string[] clothes = { "ED987A", "619EBE", "DCA7CC", "E4BF66", "81B7A1", "9E9EC9" };
             Shape(p, "Body", PrimitiveType.Capsule, new Vector3(0, .42f, 0), new Vector3(.31f, .3f, .23f), director ? "347E83" : adult ? "426B86" : clothes[index % clothes.Length]);
@@ -270,9 +279,11 @@ namespace KoSch.SchoolTycoon
                 Box(p, "Shoe", side * .078f, .045f, -.02f, .14f, .075f, .2f, "E6E3D4");
             }
             if (!adult) Box(p, "Backpack", 0, .51f, .14f, .23f, .3f, .14f, "CB746F");
+            if (pupil != null && (pupil.Stress > 65 || pupil.Wellbeing < 40))
+                Shape(p, "Needs support", PrimitiveType.Sphere, new Vector3(0, 1.2f, 0), Vector3.one * .12f, "F5C861");
             p.localScale = Vector3.one * scale;
             p.localPosition = new Vector3(CampusGrid.Entrance.X + .5f + (index % 4) * .1f, .15f, CampusGrid.Entrance.Y + .5f);
-            CampusPerson person = p.gameObject.AddComponent<CampusPerson>(); person.Initialize(app, index, adult, employee);
+            CampusPerson person = p.gameObject.AddComponent<CampusPerson>(); person.Initialize(app, index, adult, employee, pupil);
             agents.Add(person);
         }
         public static string HairColor(string name)
@@ -310,14 +321,15 @@ namespace KoSch.SchoolTycoon
         private int index, lastPhase = -1;
         private bool adult;
         private Employee employee;
+        private Pupil pupil;
         private List<Vector3> waypoints = new List<Vector3>();
         private int waypoint;
         private float wait, gait;
         private Cell corridor = CampusGrid.Entrance;
         private Vector3 indoorExit;
         private bool indoors;
-        public void Initialize(SchoolApp owner, int number, bool isAdult, Employee person)
-        { app = owner; index = number; adult = isAdult; employee = person; wait = (index % 11) * .23f; }
+        public void Initialize(SchoolApp owner, int number, bool isAdult, Employee person, Pupil student)
+        { app = owner; index = number; adult = isAdult; employee = person; pupil = student; wait = (index % 11) * .23f; }
         private void Update()
         {
             if (app.Paused || app.UI == null || app.UI.HasModal || !app.State.HasDirector || !app.Simulation.CanOperate) return;
@@ -338,13 +350,11 @@ namespace KoSch.SchoolTycoon
                 return;
             }
             wait -= dt;
-            if (wait > 0 && phase == lastPhase) return;
-            lastPhase = phase; wait = 5 + index % 9;
-            RoomKind kind = phase == 4 ? RoomKind.Canteen : phase >= 7 ? RoomKind.Garden : adult && employee.Role != StaffRole.Teacher ? RoomKind.Staffroom : RoomKind.Classroom;
-            var rooms = app.State.Rooms.Where(r => r.Kind == kind).ToList();
-            if (rooms.Count == 0) rooms = app.State.Rooms.Where(r => r.Kind == RoomKind.Classroom).ToList();
-            if (rooms.Count == 0) return;
-            Room chosen = rooms[(index + phase / 3) % rooms.Count]; Cell door, inside;
+            if (lastPhase == -1 && wait > 0) return;
+            if (phase == lastPhase) return;
+            lastPhase = phase;
+            Room chosen = app.Simulation.Destination(pupil, employee, app.State.ClockMinute, index);
+            if (chosen == null) return; Cell door, inside;
             if (!CampusGrid.TryDoor(chosen, CampusGrid.Reachable(CampusGrid.Corridors(app.State)), out door, out inside)) return;
             var path = CampusGrid.Path(app.State, corridor, door);
             waypoints.Clear(); waypoint = 0;

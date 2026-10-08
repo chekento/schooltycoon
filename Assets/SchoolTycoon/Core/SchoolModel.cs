@@ -47,7 +47,7 @@ namespace KoSch.SchoolTycoon.Core
             new RoomSpec(RoomKind.Gym, 5, 4, 9000, 60, 0, 3, "Sporthalle", "Gym", "Gesundheit und besserer Sportunterricht.", "Health and better sports lessons.", "F1AB5C")
         };
         public static RoomSpec Get(RoomKind kind) { return Rooms.First(r => r.Kind == kind); }
-        public static readonly string[] StaffNames = { "Mila Weber", "Jonas Fischer", "Amira Yilmaz", "Luca Berger", "Sofia Nguyen", "Noah Schneider", "Lea Wagner", "Emma Hoffmann" };
+        public static readonly string[] StaffNames = { "Mila Weber", "Jonas Fischer", "Amira Yilmaz", "Luca Berger", "Sofia Nguyen", "Noah Schneider", "Lea Wagner", "Emma Hoffmann", "Theo Braun", "Zara Malik", "Paul Richter", "Hana Sato", "Ava Laurent", "Felix Krüger", "Nina Patel", "Milan Varga", "Lena Ortiz", "David Sommer", "Ada Hassan", "Jan Nowak", "Clara Jung", "Rami Haddad", "Eva Fuchs", "Luis Meyer" };
         public static readonly Cell[] Directions = { new Cell(1, 0), new Cell(-1, 0), new Cell(0, 1), new Cell(0, -1) };
     }
 
@@ -55,6 +55,7 @@ namespace KoSch.SchoolTycoon.Core
     public sealed class Room
     {
         public int Id, X, Y, Width, Height;
+        public int UpgradeLevel, Condition = 100;
         public RoomKind Kind;
         public bool Contains(Cell c) { return c.X >= X && c.Y >= Y && c.X < X + Width && c.Y < Y + Height; }
         public IEnumerable<Cell> Cells()
@@ -67,6 +68,7 @@ namespace KoSch.SchoolTycoon.Core
     public sealed class Employee
     {
         public int Id, Skill, Salary;
+        public int Energy = 85, Morale = 75, TrainingLevel;
         public string Name;
         public StaffRole Role;
         public Subject Specialty;
@@ -81,15 +83,15 @@ namespace KoSch.SchoolTycoon.Core
     [Serializable]
     public sealed class Ledger
     {
-        public int Day, Students, Funding, Meals, Salaries, Maintenance, Supplies, Net, Joined, Left;
+        public int Day, Students, Funding, Meals, Salaries, Maintenance, Supplies, Activities, Support, Net, Joined, Left;
         public int Income { get { return Funding + Meals; } }
-        public int Expenses { get { return Salaries + Maintenance + Supplies; } }
+        public int Expenses { get { return Salaries + Maintenance + Supplies + Activities + Support; } }
     }
 
     [Serializable]
     public sealed class SchoolState
     {
-        public int SaveVersion = 2, Day = 1, Cash = 16000, Students = 18, Reputation = 30;
+        public int SaveVersion = 3, Day = 1, Cash = 16000, Students = 18, Reputation = 30;
         public int Happiness = 65, Learning = 50, Cleanliness = 90, Level, CampusLevel, NextId = 3;
         public int CompletedGoals, PendingEvent = -1, EnrollmentPolicy = 1, SupplyBudget = 1;
         public int DebtDays, ClockMinute = 480;
@@ -102,11 +104,21 @@ namespace KoSch.SchoolTycoon.Core
         public List<Ledger> History = new List<Ledger>();
         public Ledger LastLedger = new Ledger();
         public List<string> News = new List<string>();
+        public int NextPupilId = 1, SupportPolicy = 1, MealQuality = 1;
+        public int ActiveResearch = -1, ResearchProgress, ResearchPoints, Graduates, ExamsHeld, AchievementMask;
+        public List<Pupil> Pupils = new List<Pupil>();
+        public List<SchoolClass> Classes = new List<SchoolClass>();
+        public List<ResearchKind> CompletedResearch = new List<ResearchKind>();
+        public List<ClubKind> Clubs = new List<ClubKind>();
+        public List<ClubKind> ClubLicenses = new List<ClubKind>();
+        public List<TermReport> Reports = new List<TermReport>();
+        public DailyReport DailyReport = new DailyReport();
         public static SchoolState Create()
         {
             var state = new SchoolState();
             state.Rooms.Add(new Room { Id = 1, Kind = RoomKind.Corridor, X = 12, Y = 8, Width = 6, Height = 2 });
             state.Rooms.Add(new Room { Id = 2, Kind = RoomKind.Classroom, X = 12, Y = 10, Width = 4, Height = 3 });
+            SchoolSimulation.InitializeAcademy(state);
             return state;
         }
     }

@@ -6,7 +6,7 @@ PlayerSettings:
   serializedVersion: 28
   companyName: KoSch
   productName: The School Simulation
-  bundleVersion: 0.2.0
+  bundleVersion: 0.3.0
   defaultScreenWidth: 1600
   defaultScreenHeight: 900
   runInBackground: 0

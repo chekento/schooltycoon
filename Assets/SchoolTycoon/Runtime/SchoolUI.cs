@@ -7,7 +7,7 @@ using KoSch.SchoolTycoon.Core;
 
 namespace KoSch.SchoolTycoon
 {
-    public sealed class SchoolUI : MonoBehaviour
+    public sealed partial class SchoolUI : MonoBehaviour
     {
         private SchoolApp app;
         private RectTransform safe, leftContent, rightContent, bottom, modal, modalBody;
@@ -127,7 +127,7 @@ namespace KoSch.SchoolTycoon
             top.anchorMin = new Vector2(0, 1); top.anchorMax = Vector2.one; top.pivot = new Vector2(.5f, 1); top.anchoredPosition = new Vector2(0, -16); top.sizeDelta = new Vector2(-32, 80);
             var layout = top.gameObject.AddComponent<HorizontalLayoutGroup>(); layout.padding = new RectOffset(22, 20, 10, 10); layout.spacing = 22;
             layout.childControlWidth = layout.childControlHeight = true; layout.childForceExpandWidth = true;
-            Text brand = Text(top, "THE SCHOOL\nSIMULATION 0.2", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
+            Text brand = Text(top, "THE SCHOOL\nSIMULATION 0.3", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
             money = Text(top, "", 21, 58, ink, true); students = Text(top, "", 19, 58); quality = Text(top, "", 18, 58); calendar = Text(top, "", 19, 58);
             Button(top, app.State.Language == "de" ? "DE / EN" : "EN / DE", () => app.ToggleLanguage(), 50).GetComponent<LayoutElement>().preferredWidth = 100;
 
@@ -139,11 +139,15 @@ namespace KoSch.SchoolTycoon
 
             RectTransform right = Panel("Management", screen.transform, paper);
             Place(right, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-16, -110), new Vector2(354, 650));
-            RectTransform tabs = Row(right, 45); Place(tabs, new Vector2(0, 1), new Vector2(0, 1), new Vector2(12, -12), new Vector2(330, 44));
-            string[] labels = { app.T("Schule", "School"), app.T("Team", "Staff"), app.T("Plan", "Plan"), app.T("Budget", "Budget") };
-            for (int i = 0; i < 4; i++) { int n = i; Button(tabs, labels[i], () => { tab = n; Refresh(); }, 44, tab == i); }
-            rightContent = Scroll(right, 63, 6);
-            if (tab == 0) Overview(); else if (tab == 1) Staff(); else if (tab == 2) Curriculum(); else Budget();
+            string[] labels = { app.T("Schule", "School"), app.T("Team", "Staff"), app.T("Klassen", "Classes"), app.T("Budget", "Budget"), app.T("Schüler", "Pupils"), app.T("Forschung", "Research"), app.T("AGs", "Clubs"), app.T("Schuljahr", "Year") };
+            for (int row = 0; row < 2; row++)
+            {
+                RectTransform tabs = Row(right, 42); Place(tabs, new Vector2(0, 1), new Vector2(0, 1), new Vector2(12, -12 - row * 47), new Vector2(330, 42));
+                for (int i = row * 4; i < row * 4 + 4; i++) { int n = i; Button(tabs, labels[i], () => { tab = n; Refresh(); }, 42, tab == i); }
+            }
+            rightContent = Scroll(right, 111, 6);
+            if (tab == 0) Overview(); else if (tab == 1) Staff(); else if (tab == 2) Classes(); else if (tab == 3) Budget();
+            else if (tab == 4) Pupils(); else if (tab == 5) Research(); else if (tab == 6) Activities(); else AcademicYear();
 
             bottom = Panel("Controls", screen.transform, paper);
             bottom.anchorMin = Vector2.zero; bottom.anchorMax = new Vector2(1, 0); bottom.pivot = new Vector2(.5f, 0); bottom.anchoredPosition = new Vector2(0, 16); bottom.sizeDelta = new Vector2(-32, 88);
@@ -173,7 +177,7 @@ namespace KoSch.SchoolTycoon
             money.text = s.Cash.ToString("N0") + " €\n" + app.T("Kassenbestand", "School funds");
             students.text = s.Students + " / " + sim.Capacity + "\n" + app.T("Schüler / betreute Plätze", "Students / staffed seats");
             quality.text = app.T("Lernen ", "Learning ") + s.Learning + "%  ·  " + app.T("Freude ", "Joy ") + s.Happiness + "%\n" + app.T("Ansehen ", "Reputation ") + s.Reputation + "%";
-            calendar.text = app.T("Tag ", "Day ") + s.Day + "  ·  " + (s.ClockMinute / 60).ToString("00") + ":" + (s.ClockMinute % 60).ToString("00") + "\n" + (app.Paused ? app.T("Planungspause", "Planning paused") : app.Speed + "×");
+            calendar.text = app.T("Jahr ", "Year ") + app.Simulation.SchoolYear + " · " + app.T("Tag ", "Day ") + app.Simulation.YearDay + "  ·  " + (s.ClockMinute / 60).ToString("00") + ":" + (s.ClockMinute % 60).ToString("00") + "\n" + (app.Paused ? app.T("Planungspause", "Planning paused") : app.Speed + "×");
             mode.text = app.BuildKind.HasValue ? app.RoomName(app.BuildKind.Value) + (app.Rotated ? " ↻" : "") : app.Demolition ? app.T("Rückbau: Raum auswählen", "Demolish: select room") : app.T("Campus erkunden", "Explore campus");
             pauseLabel.text = app.Paused ? app.T("Start", "Play") : app.T("Pause", "Pause");
         }
@@ -212,11 +216,13 @@ namespace KoSch.SchoolTycoon
                 RoomSpec spec = Catalog.Get(selected.Kind);
                 CardText(rightContent, app.RoomName(selected.Kind), app.T(spec.DescriptionDe, spec.DescriptionEn), 66);
                 Text(rightContent, selected.Width + "×" + selected.Height + app.T(" Felder · ", " tiles · ") + spec.DailyCost * (selected.Kind == RoomKind.Corridor ? selected.Width * selected.Height : 1) + app.T(" €/Tag", " €/day"), 16, 40);
+                RoomDevelopment(selected);
                 if (selected.Id > 2) Button(rightContent, app.T("Diesen Raum zurückbauen", "Demolish this room"), () => Confirm(app.T("Raum zurückbauen?", "Demolish room?"), app.T("Erstattung: ", "Refund: ") + spec.Cost / 2 + " €", () => { app.SelectedRoomId = -1; app.Act(sim.Demolish(selected.Id)); }), 45);
             }
             CardText(rightContent, app.T("CAMPUS AUSBAUEN", "EXPAND THE CAMPUS"), app.T("Zunächst 20×16 Baufelder. Mit zusätzlichem Land stehen dir 32×24 Felder zur Verfügung.", "Start with 20×16 building tiles. Additional land opens the full 32×24 campus."), 88);
             Button land = Button(rightContent, s.CampusLevel > 0 ? app.T("Gesamter Campus gekauft", "Full campus owned") : app.T("Grundstück kaufen · 9.000 €", "Buy land · €9,000"), () => app.Act(sim.BuyLand()), 50);
             land.interactable = s.CampusLevel == 0 && sim.CanOperate && s.Level >= 1;
+            Button(rightContent, app.T("Tagesbericht öffnen", "Open daily report"), () => ShowDayReport(), 46);
             Button(rightContent, app.T("Kamera zurücksetzen", "Reset camera"), () => app.CameraRig.Home(), 45);
             Button(rightContent, app.T("Neue Schule beginnen", "Start a new school"), () => Confirm(app.T("Neue Schule?", "New school?"), app.T("Der aktuelle Spielstand wird durch eine neue Schule ersetzt.", "The current save will be replaced by a new school."), () => app.NewSchool()), 45);
             foreach (string news in s.News.Take(3))
@@ -233,6 +239,9 @@ namespace KoSch.SchoolTycoon
                 Employee p = employee;
                 CardText(rightContent, p.Name, app.RoleName(p.Role) + " · " + p.Salary + app.T(" €/Tag", " €/day"), 35);
                 if (p.Role == StaffRole.Teacher) Text(rightContent, app.SubjectName(p.Specialty) + " · " + p.Skill + app.T(" % Kompetenz", "% skill"), 16, 40, muted);
+                Text(rightContent, app.T("Energie ", "Energy ") + p.Energy + "% · " + app.T("Teamgefühl ", "Morale ") + p.Morale + "%", 16, 40, muted);
+                Button training = Button(rightContent, app.T("Fortbildung · ", "Training · ") + app.Simulation.TrainingCost(p) + " €", () => app.Act(app.Simulation.TrainStaff(p.Id), false), 43);
+                training.interactable = p.TrainingLevel < 3 && app.Simulation.CanOperate;
                 Button(rightContent, app.T("Freistellen", "Release"), () => Confirm(app.T("Teammitglied freistellen?", "Release staff member?"), p.Name, () => app.Act(app.Simulation.Fire(p.Id))), 40);
             }
             Text(rightContent, app.T("BEWERBUNGEN DES TAGES", "TODAY'S APPLICANTS"), 16, 34, teal, true);
@@ -244,18 +253,6 @@ namespace KoSch.SchoolTycoon
                 hire.interactable = app.Simulation.CanOperate && !app.State.Staff.Any(e => e.Name == candidate.Name);
             }
         }
-        private void Curriculum()
-        {
-            CardText(rightContent, app.T("STUNDENPLAN", "TIMETABLE"), app.T("Sechs Unterrichtsblöcke pro Tag. Unterschiedliche Fächer, passende Lehrkräfte und Spezialräume verbessern den Lernerfolg.", "Six daily lesson blocks. Diverse subjects, specialist teachers and specialist rooms improve learning."), 110);
-            for (int slot = 0; slot < 6; slot++)
-            {
-                int i = slot;
-                Text(rightContent, (slot < 4 ? 8 + slot : 9 + slot).ToString("00") + ":00", 16, 27, muted);
-                Subject current = app.State.Timetable[slot];
-                Button(rightContent, app.SubjectName(current) + "  ›", () => app.Act(app.Simulation.SetLesson(i, (Subject)(((int)app.State.Timetable[i] + 1) % 5)), false), 45);
-            }
-            CardText(rightContent, app.T("12:00 · MITTAGSPAUSE", "12:00 · LUNCH BREAK"), app.T("Mit Mensa gibt es Mittagessen; ab 15 Uhr wechseln die Figuren zur Erholung in den Garten.", "A canteen serves lunch; after 15:00, people move to the garden to unwind."), 88);
-        }
         private void Budget()
         {
             Ledger f = app.Simulation.Forecast(); int net = f.Income - f.Expenses;
@@ -265,11 +262,16 @@ namespace KoSch.SchoolTycoon
             Text(rightContent, app.T("Gehälter   −", "Salaries   −") + f.Salaries + " €", 17, 32);
             Text(rightContent, app.T("Betriebskosten   −", "Maintenance   −") + f.Maintenance + " €", 17, 32);
             Text(rightContent, app.T("Lernmaterial   −", "Learning supplies   −") + f.Supplies + " €", 17, 32);
+            Text(rightContent, app.T("Arbeitsgemeinschaften   −", "Clubs   −") + f.Activities + " €", 17, 32);
+            Text(rightContent, app.T("Förderung / Essen   −", "Support / meals   −") + f.Support + " €", 17, 32);
             Text(rightContent, app.T("Tagesbilanz   ", "Daily balance   ") + (net >= 0 ? "+" : "") + net + " €", 22, 44, net >= 0 ? teal : CampusRenderer.ColorHex("BA725C"), true);
             string[] budget = { app.T("Sparsam", "Basic"), app.T("Ausgewogen", "Balanced"), app.T("Großzügig", "Generous") };
             Button(rightContent, app.T("Lernmaterial: ", "Supplies: ") + budget[app.State.SupplyBudget], () => app.Act(app.Simulation.SetPolicy(app.State.EnrollmentPolicy, (app.State.SupplyBudget + 1) % 3), false), 46);
             string[] admissions = { app.T("Behutsam", "Gradual"), app.T("Normal", "Normal"), app.T("Aktiv", "Active") };
             Button(rightContent, app.T("Aufnahme: ", "Admissions: ") + admissions[app.State.EnrollmentPolicy], () => app.Act(app.Simulation.SetPolicy((app.State.EnrollmentPolicy + 1) % 3, app.State.SupplyBudget), false), 46);
+            string[] support = { app.T("Klassenintern", "Class support"), app.T("Begleitung", "Guidance"), app.T("Intensive Förderung", "Intensive support") };
+            Button(rightContent, app.T("Förderung: ", "Support: ") + support[app.State.SupportPolicy], () => app.Act(app.Simulation.SetWellbeingPolicy((app.State.SupportPolicy + 1) % 3, app.State.MealQuality), false), 54);
+            Button(rightContent, app.T("Mittagessen: ", "Lunch: ") + budget[app.State.MealQuality], () => app.Act(app.Simulation.SetWellbeingPolicy(app.State.SupportPolicy, (app.State.MealQuality + 1) % 3), false), 46);
             Text(rightContent, app.T("LETZTE SCHULTAGE", "RECENT SCHOOL DAYS"), 16, 35, muted, true);
             foreach (Ledger l in app.State.History.AsEnumerable().Reverse().Take(8))
                 Text(rightContent, app.T("Tag ", "Day ") + l.Day + "  ·  " + (l.Net >= 0 ? "+" : "") + l.Net + " €  ·  " + l.Students + app.T(" Schüler", " students"), 16, 30);
@@ -326,6 +328,9 @@ namespace KoSch.SchoolTycoon
                 Text value = Text(inputRect, "", 25, 60); Fit(value.rectTransform, 12); field.textComponent = value;
                 Text placeholder = Text(inputRect, app.T("Dein Name", "Your name"), 23, 60, muted); Fit(placeholder.rectTransform, 12); field.placeholder = placeholder;
                 field.text = "KoSch";
+                RectTransform suggested = Row(modalBody, 43);
+                foreach (string suggestedName in new[] { "Alex", "Sam", "Robin" })
+                { string nameChoice = suggestedName; Button(suggested, nameChoice, () => field.text = nameChoice, 43); }
                 Button(modalBody, app.T("Meine Schule eröffnen", "Open my school"), () =>
                 {
                     string name = (field.text ?? "").Trim();
@@ -372,6 +377,7 @@ namespace KoSch.SchoolTycoon
                     if (r.Success) { CloseModal(); app.Act(r, false); }
                     else Notify(app.Error(r.Code));
                 }, 62, true);
+                Text(modalBody, app.T("Freude ", "Joy ") + Signed(e.Happiness[i]) + " · " + app.T("Ansehen ", "Reputation ") + Signed(e.Reputation[i]) + " · " + app.T("Lernen ", "Learning ") + Signed(e.Learning[i]), 16, 32, muted);
                 b.interactable = e.Costs[i] == 0 || app.State.Cash >= e.Costs[i];
             }
         }

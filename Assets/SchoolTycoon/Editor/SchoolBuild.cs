@@ -25,7 +25,7 @@ namespace KoSch.SchoolTycoon.Editor
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
-            Build(BuildTarget.Android, "Builds/Android/TheSchoolSimulation-0.2.0.apk");
+            Build(BuildTarget.Android, "Builds/Android/TheSchoolSimulation-0.3.0.apk");
         }
         [MenuItem("School Simulation/Build/WebGL")]
         public static void WebGL() { Build(BuildTarget.WebGL, "Builds/WebGL"); }
@@ -34,7 +34,7 @@ namespace KoSch.SchoolTycoon.Editor
         {
             PlayerSettings.companyName = "KoSch";
             PlayerSettings.productName = "The School Simulation";
-            PlayerSettings.bundleVersion = "0.2.0";
+            PlayerSettings.bundleVersion = "0.3.0";
             PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(BuildPipeline.GetBuildTargetGroup(target)), "cloud.kosch.schoolsimulation");
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(Scene, true) };
             if (!BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target))

@@ -5,7 +5,7 @@ using KoSch.SchoolTycoon.Core;
 
 namespace KoSch.SchoolTycoon.Tests
 {
-    public class SchoolSimulationTests
+    public partial class SchoolSimulationTests
     {
         private SchoolSimulation sim;
         [SetUp] public void Setup() { sim = new SchoolSimulation(SchoolState.Create()); }

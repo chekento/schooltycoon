@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Assets/SchoolTycoon/Core/*.cs" />
-    <Compile Include="../Assets/SchoolTycoon/Tests/EditMode/SchoolSimulationTests.cs" />
+    <Compile Include="../Assets/SchoolTycoon/Tests/EditMode/*.cs" />
     <Compile Include="HeadlessTestRunner.cs" />
     <PackageReference Include="NUnit" Version="3.13.3" />
   </ItemGroup>

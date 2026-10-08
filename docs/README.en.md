@@ -1,57 +1,44 @@
-# 🏫 The School Simulation 0.2
+# 🏫 The School Simulation 0.3
 
-**Grow one classroom into a thriving campus.** An original Unity school tycoon with an isometric 3D view, cheerful procedural cartoon visuals, and German / English UI.
+Grow a classroom into a thriving campus. This Unity school tycoon uses original procedural cartoon visuals and German / English menus.
 
-[Deutsch](../README.md) · [Quick start](QUICKSTART.de.md) · [Validation](VALIDATION.md)
+[Repository](https://github.com/chekento/schooltycoon) · [Deutsch](../README.md) · [Quick start](QUICKSTART.de.md) · [Gameplay rules](GAMEPLAY.md) · [Validation](VALIDATION.md)
 
 ![Illustrative campus view; not a Unity screenshot](campus-preview.svg)
 
-## Current version
+## Open the game
 
-**0.2.0 — source prototype.** The project contains the game simulation, runtime scene builder, UI, original procedural visuals, tests and build commands. A Unity editor was unavailable during development. The pure C# simulation has been compiled and tested, but the Unity editor, rendering, UI, target builds and Android installation have **not** been verified. No APK is bundled.
+Add the project in Unity Hub, use **6000.0.65f1**, allow packages to import, then open `Assets/Scenes/Campus.unity` and press Play. The empty edit-time scene is intentional: the application constructs its campus, camera and menus at runtime.
 
-## Launch in Unity
+Choose your director's character, hair and name. You start paused with one corridor, one classroom, 18 pupil profiles and €16,000. Hire a teacher in **Staff**, build facilities from the left palette and start time or press **End day**.
 
-1. Add this folder in Unity Hub.
-2. Open with Unity **6000.0.65f1**, allow packages to import.
-3. Open `Assets/Scenes/Campus.unity` and press **Play**.
-4. Choose your director's character, hair colour and name.
-5. Hire a teacher in the **Staff** tab, build from the left-hand palette, then press **Play** in the game controls.
+## Gameplay in 0.3.0
 
-You begin paused with a corridor, one classroom, 18 students and €16,000. A teacher is needed to staff the first 24 seats.
+- Persistent pupils with five subject scores, favourite subjects, grades, wellbeing, stress and attendance. Three individual support choices with a daily limit.
+- Assigned classes with names, individual timetables, pupil transfers and unique teacher assignment. Funding follows the pupils actually served by their own class.
+- Sixty-day school years, exams every twenty days, report cards, promotion, repeating, sixth-grade graduation and fresh admissions. Sandbox play continues after the seven progression grants.
+- Teachers, caretakers and counselors with energy, morale, meaningful training and recurring salary increases.
+- Ten room types with connected-corridor placement, rotation, previews, demolition, wear, repairs and two upgrade levels. Classrooms grow from 24 to 32 seats.
+- Four research projects with facility prerequisites, one-time costs, daily progress and permanent effects.
+- Five clubs with their own required rooms, retained equipment and recurring operating costs.
+- Twelve events with three choices each, six achievement grants, daily reports and detailed budget policies.
+- Routes based on actual class timetables, specialist facilities, lunch and clubs. Absentees are hidden. Simplified weather and seasonal garden colours.
+- Eight management tabs, DE/EN switching, touch gestures, camera drag/zoom/orbit, pause and speed controls.
+- Validated v3 JSON saves and backups; automatic migration of valid v2 saves preserves campus, money, staff, director and progress.
 
-## Implemented gameplay
+Each system is connected to the simulation and has an in-game menu. Clubs simplify participation: every present pupil receives the active programmes' learning bonuses, while the view distributes people between their rooms. The renderer caps visible pupils at 64 and staff at 24; every profile is simulated independently of that cap. People use corridor routes without mutual collision avoidance. There is no audio.
 
-- Ten room types: corridor, classroom, restroom, staff room, canteen, library, garden, science lab, art studio and gym.
-- Connected-corridor construction rules, rotated footprints, coloured placement previews and demolition with 50% refund.
-- Daily applicants: teachers, caretakers and counselors.
-- Six lesson blocks; maths, languages, science, arts and sports. Specialist staff and rooms affect learning.
-- Education grants, canteen income, wages, maintenance and configurable supplies / admissions.
-- Learning, happiness, cleanliness and reputation; daily enrollment and withdrawals.
-- Seven progression grants and recurring school events with three choices each.
-- 20×16 owned tiles, expandable to the full 32×24 campus.
-- Corridor-based student and staff movement, lunchtime and garden time.
-- A persistent status bar, management menus, pause / speed controls, German / English switch.
-- Drag-to-pan, mouse wheel / pinch zoom, touch controls and screen safe area.
-- Local JSON saves with validation and a previous-save backup.
+## Verification and builds
 
-Camera: drag / WASD, wheel, Q / E. Rotate room: R. Pause: Space. Cancel building: Esc. Touch controls use the on-screen buttons.
+This is **0.3.0 source code**, with separately compiled and tested C# gameplay. A Unity editor was unavailable. Unity import, rendering, actual menu interaction, platform builds and device installation remain unverified. No APK is bundled. See [validation](VALIDATION.md) and the [Play Mode checklist](PLAYTEST.md).
 
-## Builds and tests
-
-Use **School Simulation → Build** for Windows, Linux, Android APK or WebGL. Install target support in Unity Hub first. Android uses ARM64, IL2CPP, Android API 26+ and landscape orientation.
-
-Domain tests are under `Assets/SchoolTycoon/Tests/EditMode`. Run them in the Unity Test Runner or use `.NET 8`:
+Run the same domain tests in Unity Test Runner or with .NET 8:
 
 ```sh
 python3 tools/validate_project.py
 dotnet run --project tools/SchoolDomainTests.csproj --configuration Release
 ```
 
-The standard GitHub workflow runs these checks. A separate manual Unity build workflow requires your own licensed self-hosted Unity runner. The game uses the Built-in Render Pipeline, uGUI and the legacy Input Manager. No Asset Store purchase is required.
+GitHub Actions runs these checks. A separate manual build workflow requires a licensed self-hosted Unity runner. **School Simulation → Build** provides Windows, Linux, Android APK and WebGL commands; install the appropriate Unity Hub target module first. Android output is `Builds/Android/TheSchoolSimulation-0.3.0.apk`. WebGL save persistence across browser sessions still needs target-specific verification.
 
-## Prototype limits
-
-The current world uses procedural shapes. Student totals are authoritative in the domain; the view caps visual students at 64 and visual staff at 24. People use corridor routes but do not yet avoid one another. Timetables and educational outcomes are school-wide aggregates. Saves target desktop and Android local storage; WebGL save persistence after closing the browser still requires target-specific verification.
-
-Concept by KoSch / The School Simulation. No distribution licence selected yet. Unity packages retain their respective terms.
+Built-in Render Pipeline, uGUI 2.0.0, legacy Input Manager. No Asset Store purchase required. Concept: KoSch / The School Simulation; independent Unity implementation of the selected school simulation plugin. No distribution licence selected. Unity packages retain their own terms.
