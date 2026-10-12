@@ -230,7 +230,7 @@ namespace KoSch.SchoolTycoon.Core
                 int support = State.SupportPolicy * 2 + counselorSupport + (Researched(ResearchKind.InclusiveLearning) ? 4 : 0);
                 int targetStress = 24 - PupilRoomAverage(RoomSupport) + (teacher == null ? 30 : 0) + Math.Max(0, 60 - State.Happiness) / 2 - support - ActiveClubCount * 2;
                 pupil.Stress = Clamp((pupil.Stress * 3 + targetStress) / 4, 0, 100);
-                pupil.Wellbeing = Clamp((pupil.Wellbeing * 2 + State.Happiness + ActiveClubCount * 2 + (Researched(ResearchKind.CreativeCampus) ? 5 : 0) - pupil.Stress / 12) / 3, 0, 100);
+                pupil.Wellbeing = Clamp((pupil.Wellbeing * 2 + State.Happiness + PupilRoomAverage(RoomSupport) + ActiveClubCount * 2 + (Researched(ResearchKind.CreativeCampus) ? 5 : 0) - pupil.Stress / 12) / 3, 0, 100);
                 if (teacher != null && !pupil.Absent)
                 {
                     Room room = State.Rooms.First(r => r.Id == group.RoomId);

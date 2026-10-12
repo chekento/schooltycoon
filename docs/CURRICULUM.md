@@ -1,4 +1,4 @@
-# Curriculum and school towers · 0.4
+# Curriculum and school towers · 0.5
 
 146 built-in courses across ten groups. All 43 currently listed AP subjects are included. Up to 200 additional local electives can be created and stored in each save. These are configurable simulation courses, not certified real-world curricula. Germany and the USA have local variations.
 

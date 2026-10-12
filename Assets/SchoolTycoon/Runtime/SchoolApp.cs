@@ -109,7 +109,8 @@ namespace KoSch.SchoolTycoon
         {
             State.Director = avatar; State.HasDirector = true; Paused = true;
             Campus.Rebuild(); UI.Refresh(); Save(false);
-            UI.Notify(T("Willkommen! Stelle zuerst eine Lehrkraft ein. Bau- und Personalmenü sind links und rechts.", "Welcome! Hire a teacher first. Building and staff menus are on the left and right."));
+            if(Simulation.Modern&&!Simulation.Sandbox)UI.ShowStory();
+            UI.Notify(T("Willkommen! Stelle zuerst eine Lehrkraft ein. Öffne Verwalten für das Team und Bauen für den Ausbau.", "Welcome! Hire a teacher first. Use Manage for your team and Build to expand."));
         }
         public void StartNew(int slot,Difficulty difficulty,GameMode mode,string schoolName)
         {

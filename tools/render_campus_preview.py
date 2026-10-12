@@ -1,7 +1,7 @@
 """Blender render of the same C# model recipes. Not a Unity gameplay screenshot."""
 import bpy,json,math,sys
 from mathutils import Vector
-args=sys.argv[sys.argv.index('--')+1:];data=json.load(open(args[0]));output=args[1]
+args=sys.argv[sys.argv.index('--')+1:];data=json.load(open(args[0]));output=args[1];closeup=len(args)>2 and args[2]=='progression'
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 materials={};meshes={}
 def mat(p):
@@ -33,5 +33,5 @@ scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=24;sce
 scene.world.use_nodes=True;scene.world.node_tree.nodes['Background'].inputs[0].default_value=(.55,.69,.61,1);scene.world.node_tree.nodes['Background'].inputs[1].default_value=.5
 bpy.ops.object.light_add(type='SUN',location=(5,-8,20));sun=bpy.context.object;sun.rotation_euler=(.65,-.4,-.5);sun.data.energy=2.1;sun.data.angle=.18;sun.data.color=(1,.89,.74)
 bpy.ops.object.light_add(type='AREA',location=(10,-5,20));light=bpy.context.object;light.data.energy=1500;light.data.shape='DISK';light.data.size=18
-bpy.ops.object.camera_add(location=(40,-25,32));camera=bpy.context.object;direction=Vector((15,10,2.8))-camera.location;camera.rotation_euler=direction.to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=44;scene.camera=camera
-scene.view_settings.view_transform='AgX';scene.view_settings.look='AgX - Medium High Contrast';scene.render.image_settings.file_format='PNG';scene.render.filepath=output;bpy.ops.wm.save_as_mainfile(filepath=output+'.blend');bpy.ops.render.render(write_still=True)
+bpy.ops.object.camera_add(location=(13,-12,11) if closeup else (40,-25,32));camera=bpy.context.object;direction=(Vector((4.5,1.5,1)) if closeup else Vector((15,10,2.8)))-camera.location;camera.rotation_euler=direction.to_track_quat('-Z','Y').to_euler();camera.data.type='ORTHO';camera.data.ortho_scale=11 if closeup else 44;scene.camera=camera
+scene.view_settings.view_transform='AgX';scene.view_settings.look='AgX - Medium High Contrast';scene.render.image_settings.file_format='JPEG' if output.lower().endswith('.jpg') else 'PNG';scene.render.image_settings.quality=88;scene.render.filepath=output;bpy.ops.render.render(write_still=True)

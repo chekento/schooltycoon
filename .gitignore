@@ -29,3 +29,6 @@ tools/bin/
 !tools/SchoolDomainTests.csproj
 tools/obj/
 .toolchain/
+
+__pycache__/
+*.pyc

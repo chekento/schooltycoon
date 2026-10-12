@@ -17,6 +17,7 @@ namespace KoSch.SchoolTycoon.Core
         }
         public int Price(int amount) { return Modern?(amount*Rules.PricePercent+99)/100:amount; }
         public bool CanAfford(int amount) { return Sandbox||amount==0||State.Cash>=amount; }
+        public int StaffDailySalary(Employee employee){return employee.Salary*(Modern?Rules.UpkeepPercent:100)/100;}
         public int EducationFunding(int pupils)
         {if(!Modern)return pupils*28;int first=Math.Min(48,pupils),middle=Math.Min(48,Math.Max(0,pupils-48)),rest=Math.Max(0,pupils-96);return first*Rules.Funding+middle*Rules.Funding*80/100+rest*Rules.Funding*65/100;}
         private void Spend(int amount) { if(!Sandbox)State.Cash-=amount; }
@@ -34,6 +35,7 @@ namespace KoSch.SchoolTycoon.Core
             if(State.Day<UnlockDay(kind)||State.Level<Catalog.Get(kind).UnlockLevel||floor>AllowedFloor)return false;
             if(floor>=2&&!Researched(ResearchKind.GreenCampus))return false;
             if(kind==RoomKind.Library&&State.Students<24)return false;
+            if((int)kind>=7&&kind!=RoomKind.Staircase&&Count(RoomKind.Library)==0)return false;
             if(kind==RoomKind.ComputerLab||kind==RoomKind.Workshop)return Researched(ResearchKind.DigitalLearning);
             if(kind==RoomKind.Theatre)return Researched(ResearchKind.CreativeCampus);
             if(kind==RoomKind.ScienceLab)return State.Staff.Any(e=>e.Role==StaffRole.Teacher&&e.TrainingLevel>0);
@@ -42,8 +44,8 @@ namespace KoSch.SchoolTycoon.Core
         public string RoomRequirement(RoomKind kind,int floor=0)
         {
             string extra=kind==RoomKind.Library?" · 24 Schüler":kind==RoomKind.ComputerLab||kind==RoomKind.Workshop?" · Digitale Lernwerkstatt":kind==RoomKind.Theatre?" · Kreativer Campus":kind==RoomKind.ScienceLab?" · fortgebildete Lehrkraft":"";
-            return State.Language=="de"?"Ab Tag "+UnlockDay(kind)+" · Schulstufe "+Catalog.Get(kind).UnlockLevel+extra+(floor>AllowedFloor?" · höhere Geschosse später":"")+(floor>=2?" · Nachhaltiger Campus":""):
-                "From day "+UnlockDay(kind)+" · school level "+Catalog.Get(kind).UnlockLevel+(kind==RoomKind.Library?" · 24 pupils":kind==RoomKind.ComputerLab||kind==RoomKind.Workshop?" · Digital learning":kind==RoomKind.Theatre?" · Creative campus":kind==RoomKind.ScienceLab?" · trained teacher":"")+(floor>=2?" · Green campus":"");
+            return State.Language=="de"?"Ab Tag "+UnlockDay(kind)+" · Schulstufe "+Catalog.Get(kind).UnlockLevel+extra+((int)kind>=7&&kind!=RoomKind.Staircase?" · Bibliothek":"")+(floor>AllowedFloor?" · höhere Geschosse später":"")+(floor>=2?" · Nachhaltiger Campus":""):
+                "From day "+UnlockDay(kind)+" · school level "+Catalog.Get(kind).UnlockLevel+(kind==RoomKind.Library?" · 24 pupils":kind==RoomKind.ComputerLab||kind==RoomKind.Workshop?" · Digital learning":kind==RoomKind.Theatre?" · Creative campus":kind==RoomKind.ScienceLab?" · trained teacher":"")+((int)kind>=7&&kind!=RoomKind.Staircase?" · library":"")+(floor>=2?" · Green campus":"");
         }
         public bool SubjectUnlocked(Subject sub)
         {SubjectSpec c=CurriculumCatalog.Get(sub,State);return c!=null&&(!Modern||Sandbox||c.Difficulty<3||State.Day>=(c.NameEn.StartsWith("AP ")?150:75)&&State.Learning>=(c.NameEn.StartsWith("AP ")?65:60)&&(!c.NameEn.StartsWith("AP ")||Researched(ResearchKind.DigitalLearning)));}
@@ -85,7 +87,7 @@ namespace KoSch.SchoolTycoon.Core
         private int PupilRoomAverage(Func<Room,int> score)
         {return State.Pupils.Count==0?0:(int)State.Pupils.Average(p=>{Room r=State.Rooms.FirstOrDefault(x=>x.Id==p.ClassRoomId);return r==null?0:score(r);});}
         private int StaffRestBonus {get{return Math.Min(4,State.Rooms.Where(r=>r.Kind==RoomKind.Staffroom).Sum(RoomSupport)/2);}}
-        private int EquipmentCleanBonus {get{return Math.Min(6,State.Rooms.Where(r=>r.FurnishingVersion==1&&r.Kind==RoomKind.Toilet).Sum(r=>r.Items.Sum(i=>RektorCatalog.Get(i).Cleanliness)));}}
+        private int EquipmentCleanBonus {get{return Math.Min(6,PupilRoomAverage(r=>r.FurnishingVersion==1?Math.Min(2,r.Items.Sum(i=>RektorCatalog.Get(i).Cleanliness)):0)+State.Rooms.Where(r=>r.FurnishingVersion==1&&r.Kind==RoomKind.Toilet).Sum(r=>r.Items.Sum(i=>RektorCatalog.Get(i).Cleanliness)));}}
         private int EquipmentHappyBonus {get{return PupilRoomAverage(RoomComfort)+Math.Min(6,State.Rooms.Where(r=>r.Kind==RoomKind.Canteen||r.Kind==RoomKind.Garden).Sum(RoomComfort));}}
         public static readonly string[] StoryDe={"Ein Schlüssel, ein Anfang","Ein guter Schultag","Weitere Stimmen","Zusammen am Mittagstisch","Ein Ort für Neugier","Mehr als eine Tafel","Über den Hof hinaus","Talente entdecken","Ein Jahr voller Geschichten","Unser Stadtteilcampus","Wege ins Leben","Deine eigene Schulvision"};
         public static readonly string[] StoryEn={"A key and a beginning","A good school day","More voices","Lunch together","A place for curiosity","Beyond the chalkboard","Beyond the courtyard","Discovering talents","A year of stories","Our neighbourhood campus","Paths into life","Your own school vision"};
@@ -140,6 +142,7 @@ namespace KoSch.SchoolTycoon.Core
             foreach(Room r in s.Rooms)
             {
                 if(r.Items==null||r.FurnishingVersion<0||r.FurnishingVersion>1||r.Items.Distinct().Count()!=r.Items.Count||r.Items.Any(i=>!RektorCatalog.For(r.Kind).Any(spe=>spe.Id==i))||r.FurnishingVersion==0&&r.Items.Count>0)return false;
+                if(r.Items.Contains(RoomItem.WallArt)&&!r.Items.Contains(RoomItem.Plants)||r.Items.Contains(RoomItem.SignatureDecor)&&!r.Items.Contains(RoomItem.WallArt))return false;
                 if(r.Items.Contains(RoomItem.DeskRow2)&&!r.Items.Contains(RoomItem.DeskRow1)||r.Items.Contains(RoomItem.DeskRow3)&&!r.Items.Contains(RoomItem.DeskRow2))return false;
                 if(r.Items.Any(i=>RektorCatalog.Get(i).Decoration)&&RektorCatalog.For(r.Kind).Any(i=>!i.Decoration&&!r.Items.Contains(i.Id)))return false;
             }

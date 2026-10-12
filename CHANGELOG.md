@@ -1,3 +1,12 @@
+# 0.5.0 · Rektor
+
+- Renamed the product to Rektor. Main menu, six independent save slots with checksums/backups, three difficulty rules, Sandbox and settings.
+- Progressive functional room equipment, five tiers, 57 item types and matching 3D visuals; decoration follows functional upgrades.
+- Twelve chapters with Mara, contextual advice, research/training/AP prerequisites and later floors. Diminishing funding for larger campuses.
+- Collapsible mobile management/build menus, touch camera, safe area, audio, graphics presets and reduced motion.
+- Actual Unity ARM64/IL2CPP Android build entry and GitHub pipeline. APK blocked by missing Unity activation; no device test claimed.
+- New campaign and save tests, including 720 earned-progress days per difficulty and regional courses.
+
 # 0.4.0 · Curriculum & campus art
 
 - 146 courses, all 43 AP offerings, DE/England/USA weekly plans, 200 custom electives and independent course marks.

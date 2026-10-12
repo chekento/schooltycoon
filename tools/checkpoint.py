@@ -18,7 +18,7 @@ entries=[]
 for p in sorted(paths):
  f=root/p
  if not f.is_file():entries.append(dict(path=p,mode='100644',type='blob',sha=None));continue
- if f.suffix in ['.png','.zip','.apk','.blend']:continue
+ if f.suffix in ['.png','.jpg','.jpeg','.webp','.zip','.apk','.blend','.pyc']:continue
  entries.append(dict(path=p,mode='100644',type='blob',content=f.read_text()))
 chunks=[];chunk=[];size=0
 for e in entries:

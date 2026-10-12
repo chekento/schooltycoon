@@ -76,7 +76,7 @@ namespace KoSch.SchoolTycoon.Tests
         {
             Campaign(mode:GameMode.Sandbox);sim.Hire(0);Assert.IsTrue(sim.Build(RoomKind.Staircase,16,10).Success);
             for(int f=1;f<6;f++){Assert.IsTrue(sim.Build(RoomKind.Staircase,16,10,false,f).Success);for(int x=16;x>=12;x--)Assert.IsTrue(sim.Build(RoomKind.Corridor,x,9,false,f).Success);Assert.IsTrue(sim.Build(RoomKind.Classroom,12,10,false,f).Success);}
-            var target=new Cell(16,10,5);Assert.Greater(CampusGrid.Path(sim.State,CampusGrid.Entrance,target).Count,10);Assert.IsTrue(SchoolSimulation.ValidateSave(sim.State));Assert.AreEqual(6,sim.State.Classes.Count);Assert.AreEqual("floor",sim.Build(RoomKind.Corridor,12,9,false,6).Code);
+            var target=new Cell(16,10,5);var path=CampusGrid.Path(sim.State,CampusGrid.Entrance,target);Assert.Greater(path.Count,5);Assert.AreEqual(5,path.Zip(path.Skip(1),(a,b)=>a.Floor!=b.Floor).Count(v=>v));Assert.IsTrue(SchoolSimulation.ValidateSave(sim.State));Assert.AreEqual(6,sim.State.Classes.Count);Assert.AreEqual("floor",sim.Build(RoomKind.Corridor,12,9,false,6).Code);
         }
         [Test] public void ModernEnglandAndUSCurriculaRemainSustainableWithActualStartingCapital()
         {
@@ -108,7 +108,7 @@ namespace KoSch.SchoolTycoon.Tests
             if(sim.State.Day>=25)
             {
                 for(int x=18;x<=23;x++)if(CampusGrid.At(sim.State,new Cell(x,9))==null&&Affordable(80))sim.Build(RoomKind.Corridor,x,9);
-                if(sim.Count(RoomKind.Classroom)<3&&Affordable(sim.BuildCost(RoomKind.Classroom)+sim.Price(700))){if(sim.Build(RoomKind.Classroom,20,10).Success)CampaignTeacher();}
+                if(sim.Count(RoomKind.Library)>0&&sim.Count(RoomKind.Classroom)<3&&Affordable(sim.BuildCost(RoomKind.Classroom)+sim.Price(700))){if(sim.Build(RoomKind.Classroom,20,10).Success)CampaignTeacher();}
                 for(int y=11;y<=14;y++)if(CampusGrid.At(sim.State,new Cell(11,y))==null&&Affordable(80))sim.Build(RoomKind.Corridor,11,y);
                 for(int x=12;x<=23;x++)if(CampusGrid.At(sim.State,new Cell(x,14))==null&&Affordable(80))sim.Build(RoomKind.Corridor,x,14);
             }

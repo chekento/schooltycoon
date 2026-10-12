@@ -55,7 +55,7 @@ namespace KoSch.SchoolTycoon.Core
             for(int i=0;i<5;i++)B(p,"Chalk notes",w/2-.72f+i*.28f,1.68f+(i%2)*.16f,h-.267f,.15f,.023f,.008f,"F8F4DE");
             C(p,"Clock face",w-.45f,2.13f,h-.2f,.28f,.05f,.28f,"F8F2DA");
         }
-        public static List<VisualPart> Room(Room r,int doorSide=2,float doorAt=.5f)
+        public static List<VisualPart> Room(Room r,int doorSide=2,float doorAt=.5f,bool stairRises=true)
         {
             var p=new List<VisualPart>();float w=r.Width,h=r.Height;string accent=Catalog.Get(r.Kind).Hex;
             B(p,"Structural floor edge",w/2,.035f,h/2,w-.02f,.14f,h-.02f,"96ABAC");
@@ -64,6 +64,7 @@ namespace KoSch.SchoolTycoon.Core
             { for(int x=0;x<w;x++)for(int z=0;z<h;z++)B(p,"Terrazzo inlay",x+.5f,.165f,z+.5f,.7f,.015f,.7f,"D7E3DC");return p; }
             if(r.Kind==RoomKind.Staircase)
             {
+                if(!stairRises){B(p,"Stair landing",w/2,.17f,h/2,w-.14f,.04f,h-.14f,"D0DDD2");return p;}
                 bool reverse=r.Floor%2==1;
                 for(int i=0;i<12;i++){float z=reverse?.25f+i*.135f:h-.25f-i*.135f,y=.14f+(i+1)*CampusGrid.FloorHeight/12;
                     B(p,"Oak stair tread",w/2,y,z,1.25f,.08f,.18f,"D3B18E",VisualSurface.Timber);
@@ -141,7 +142,7 @@ namespace KoSch.SchoolTycoon.Core
             {
                 switch(item)
                 {
-                    case RoomItem.Storage:Shelf(p,w-.65f,h-.4f);break;
+                    case RoomItem.Storage:B(p,"Material cupboard",w-.5f,.85f,h-.32f,.78f,1.35f,.42f,"C8B397",VisualSurface.Timber);B(p,"Cupboard handle",w-.5f,.94f,h-.55f,.035f,.21f,.03f,"839C91",VisualSurface.Metal);break;
                     case RoomItem.TaskLighting:B(p,"Warm learning wall light",.2f,2.15f,h/2,.09f,.28f,.45f,"F2E2B9",VisualSurface.Screen);break;
                     case RoomItem.ErgonomicChairs:B(p,"Ergonomic lumbar cushions",w-.38f,.5f,.9f,.28f,.28f,.07f,"9EC7B0",VisualSurface.Fabric);break;
                     case RoomItem.SafetyKit:case RoomItem.LabSafety:case RoomItem.HygieneKit:B(p,"Safety cabinet",.16f,1.14f,h-.6f,.13f,.45f,.5f,"BDD0BE");B(p,"First aid sign",.237f,1.16f,h-.6f,.01f,.06f,.23f,"FFF4DC");B(p,"First aid cross",.24f,1.16f,h-.6f,.01f,.22f,.06f,"FFF4DC");break;

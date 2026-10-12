@@ -238,7 +238,7 @@ namespace KoSch.SchoolTycoon
                 if (selected.Id > 2) Button(rightContent, app.T("Diesen Raum zurückbauen", "Demolish this room"), () => Confirm(app.T("Raum zurückbauen?", "Demolish room?"), app.T("Erstattung: ", "Refund: ") + sim.BuildCost(selected.Kind,selected.Floor) / 2 + " €", () => { app.SelectedRoomId = -1; app.Act(sim.Demolish(selected.Id)); }), 45);
             }
             CardText(rightContent, app.T("CAMPUS AUSBAUEN", "EXPAND THE CAMPUS"), app.T("Zunächst 20×16 Baufelder. Mit zusätzlichem Land stehen dir 32×24 Felder zur Verfügung.", "Start with 20×16 building tiles. Additional land opens the full 32×24 campus."), 88);
-            Button land = Button(rightContent, s.CampusLevel > 0 ? app.T("Gesamter Campus gekauft", "Full campus owned") : app.T("Grundstück kaufen · 9.000 €", "Buy land · €9,000"), () => app.Act(sim.BuyLand()), 50);
+            Button land = Button(rightContent, s.CampusLevel > 0 ? app.T("Gesamter Campus gekauft", "Full campus owned") : app.T("Grundstück kaufen · ", "Buy land · ")+sim.Price(9000).ToString("N0")+" €", () => app.Act(sim.BuyLand()), 50);
             land.interactable = s.CampusLevel == 0 && sim.CanOperate && s.Level >= 1;
             Button(rightContent, app.T("Tagesbericht öffnen", "Open daily report"), () => ShowDayReport(), 46);
             Button(rightContent, app.T("Kamera zurücksetzen", "Reset camera"), () => app.CameraRig.Home(), 45);
@@ -256,7 +256,7 @@ namespace KoSch.SchoolTycoon
             foreach (Employee employee in app.State.Staff)
             {
                 Employee p = employee;
-                CardText(rightContent, p.Name, app.RoleName(p.Role) + " · " + p.Salary + app.T(" €/Tag", " €/day"), 35);
+                CardText(rightContent, p.Name, app.RoleName(p.Role) + " · " + app.Simulation.StaffDailySalary(p) + app.T(" €/Tag", " €/day"), 35);
                 if (p.Role == StaffRole.Teacher) Text(rightContent, app.SubjectName(p.Specialty) + " · " + p.Skill + app.T(" % Kompetenz", "% skill"), 16, 40, muted);
                 Text(rightContent, app.T("Energie ", "Energy ") + p.Energy + "% · " + app.T("Teamgefühl ", "Morale ") + p.Morale + "%", 16, 40, muted);
                 Button training = Button(rightContent, app.T("Fortbildung · ", "Training · ") + app.Simulation.TrainingCost(p) + " €", () => app.Act(app.Simulation.TrainStaff(p.Id), false), 43);
@@ -267,7 +267,7 @@ namespace KoSch.SchoolTycoon
             foreach (Employee candidate in app.Simulation.Candidates())
             {
                 int id = candidate.Id;
-                CardText(rightContent, candidate.Name, app.RoleName(candidate.Role) + " · " + candidate.Salary + app.T(" €/Tag\n", " €/day\n") + (candidate.Role == StaffRole.Teacher ? app.SubjectName(candidate.Specialty) + " · " + candidate.Skill + "%" : app.T("Für eine lebendige Schule", "For a thriving school")), 60);
+                CardText(rightContent, candidate.Name, app.RoleName(candidate.Role) + " · " + app.Simulation.StaffDailySalary(candidate) + app.T(" €/Tag\n", " €/day\n") + (candidate.Role == StaffRole.Teacher ? app.SubjectName(candidate.Specialty) + " · " + candidate.Skill + "%" : app.T("Für eine lebendige Schule", "For a thriving school")), 60);
                 Button hire = Button(rightContent, app.T("Einstellen · ", "Hire · ") + app.Simulation.Price(candidate.Role == StaffRole.Teacher ? 700 : 400) + " €", () => app.Act(app.Simulation.Hire(id)), 43, true);
                 hire.interactable = app.Simulation.CanOperate && !app.State.Staff.Any(e => e.Name == candidate.Name);
             }

@@ -79,7 +79,7 @@ namespace KoSch.SchoolTycoon
             {
                 RoomItem item=spec.Id;bool owned=r.Items.Contains(item);Result availability=app.Simulation.CanBuyItem(r,item);string name=app.T(spec.NameDe,spec.NameEn);
                 Text(modalBody,(owned?"✓ ":"")+name,21,52,owned?teal:ink,true);
-                string effect=app.T("Lernen +","Learning +")+spec.Learning+app.T(" · Freude +"," · Joy +")+spec.Happiness+app.T(" · Wohlbefinden +"," · Wellbeing +")+spec.Wellbeing+app.T(" · Hygiene +"," · Hygiene +")+spec.Cleanliness+"\n"+spec.Daily+app.T(" €/Tag Betrieb"," €/day upkeep");Text(modalBody,effect,16,68,muted);
+                string effect=app.T("Lernen +","Learning +")+spec.Learning+app.T(" · Freude +"," · Joy +")+spec.Happiness+app.T(" · Wohlbefinden +"," · Wellbeing +")+spec.Wellbeing+app.T(" · Hygiene +"," · Hygiene +")+spec.Cleanliness+"\n"+spec.Daily+app.T(" €/Tag Basisbetrieb · Zuschläge nach Geschoss und Schwierigkeit"," €/day base upkeep · floor and difficulty modifiers apply");Text(modalBody,effect,16,68,muted);
                 if(!owned){string requirement=app.T("Ab Tag ","From day ")+spec.Day+(spec.Research.HasValue?" · "+app.ResearchName(spec.Research.Value):"");if(spec.Decoration)requirement+=app.T(" · funktionale Ausstattung komplett"," · all functional equipment owned");Text(modalBody,requirement,16,54,muted);Button b=Button(modalBody,availability.Success?app.T("Kaufen · ","Purchase · ")+app.Simulation.ItemCost(item)+" €":app.Error(availability.Code),()=>{app.Act(app.Simulation.BuyRoomItem(roomId,item));RoomShop(roomId);},62,availability.Success);b.interactable=availability.Success;}
             }
             Button(modalBody,app.T("Zurück zum Campus","Back to campus"),()=>CloseModal(),58);
@@ -91,7 +91,7 @@ namespace KoSch.SchoolTycoon
             Text(rightContent,sim.StoryAdvice(),17,174,ink);Progress(rightContent,state.StoryChapter,12);
             Button(rightContent,app.T("Nächsten Schritt ansehen","Show the next step"),()=>ShowStory(),52,true);
         }
-        private void ShowStory()
+        public void ShowStory()
         {
             var sim=app.Simulation;int chapter=Math.Min(11,app.State.StoryChapter);OpenModal(app.T(SchoolSimulation.StoryDe[chapter],SchoolSimulation.StoryEn[chapter]),sim.StoryAdvice());
             Text(modalBody,app.State.StoryChapter+"/12 · "+app.T("Kapitel abgeschlossen","chapters completed"),18,45,teal,true);

@@ -137,7 +137,7 @@ namespace KoSch.SchoolTycoon.Core
                 Day = State.Day, Students = State.Students,
                 Funding = EducationFunding(ServedStudents),
                 Meals = Math.Min(State.Students, State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12)) * 3,
-                Salaries = State.Staff.Sum(e => e.Salary)*(Modern?Rules.UpkeepPercent:100)/100,
+                Salaries = State.Staff.Sum(StaffDailySalary),
                 Maintenance = State.Rooms.Sum(RoomRunningCost) * (Researched(ResearchKind.GreenCampus) ? 80 : 100) / 100,
                 Supplies = State.Students * (2 + State.SupplyBudget * 2),
                 Curriculum = TeachingCost(),

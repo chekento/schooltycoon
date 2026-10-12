@@ -116,7 +116,7 @@ namespace KoSch.SchoolTycoon
             Text(modalBody, app.T("Wohlbefinden ", "Wellbeing ") + p.Wellbeing + "% · " + app.T("Stress ", "Stress ") + p.Stress + "%", 19, 44, teal, true);
             foreach(Subject sub in app.Simulation.PupilCourses(p)){int score=app.Simulation.Score(p,sub);Text(modalBody,app.SubjectName(sub)+" · "+score+"%",18,34);Progress(modalBody,score,100);}
             Text(modalBody, app.T("Letzte Prüfung ", "Last exam ") + p.LastExam + "%", 17, 38, muted);
-            string[] actions = { app.T("Förderunterricht · 90 €", "Tutoring · €90"), app.T("Beratung · 60 €", "Counselling · €60"), app.T("Persönliches Gespräch · 0 €", "Personal conversation · €0") };
+            string[] actions = { app.T("Förderunterricht · ", "Tutoring · ")+app.Simulation.Price(90)+" €", app.T("Beratung · ", "Counselling · ")+app.Simulation.Price(60)+" €", app.T("Persönliches Gespräch · 0 €", "Personal conversation · €0") };
             string[] details = { app.T("Schwächstes Fach +8, Stress +3.", "Weakest subject +8, stress +3."), app.T("Stress −18, Wohlbefinden +10.", "Stress −18, wellbeing +10."), app.T("Stress −6, Wohlbefinden +3.", "Stress −6, wellbeing +3.") };
             for (int i = 0; i < 3; i++)
             {
@@ -141,7 +141,7 @@ namespace KoSch.SchoolTycoon
         {
             var s = app.State;
             CardText(rightContent, app.T("SCHULENTWICKLUNG", "SCHOOL DEVELOPMENT"), app.T("Forschung braucht eine Bibliothek. Die Projektkosten fallen einmalig an; Fortschritt entsteht am Tagesende. Größere Bibliotheken forschen schneller.", "Research needs a library. Project costs are paid once; progress arrives at day end. Upgraded libraries work faster."), 132);
-            Text(rightContent,app.T("Frühe Forschung ab Tag 30/40; Förderung ab Tag 90; Kreativität ab Tag 140. Forschung bleibt über mehrere Schultage aktiv.","Early research from days 30/40; inclusion from day 90; creativity from day 140. Projects progress over multiple school days."),16,96,muted);
+            if(app.Simulation.Modern)Text(rightContent,app.T("Frühe Forschung ab Tag 30/40; Förderung ab Tag 90; Kreativität ab Tag 140. Forschung bleibt über mehrere Schultage aktiv.","Early research from days 30/40; inclusion from day 90; creativity from day 140. Projects progress over multiple school days."),16,96,muted);
             if (s.ActiveResearch >= 0)
             {
                 ResearchSpec active = AcademyCatalog.Research[s.ActiveResearch];

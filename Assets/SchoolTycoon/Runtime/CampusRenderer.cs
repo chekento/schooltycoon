@@ -38,7 +38,7 @@ namespace KoSch.SchoolTycoon
             Cell door,inside;int side=2;float at=.5f;
             if(CampusGrid.TryDoor(r,CampusGrid.Reachable(app.State),out door,out inside))
             {if(door.Y>=r.Y+r.Height){side=0;at=inside.X-r.X+.5f;}else if(door.X<r.X){side=1;at=inside.Y-r.Y+.5f;}else if(door.X>=r.X+r.Width){side=3;at=inside.Y-r.Y+.5f;}else{side=2;at=inside.X-r.X+.5f;}}
-            art.DrawAll(root,CampusDesign.Room(r,side,at));StaticBatchingUtility.Combine(root.gameObject);
+            art.DrawAll(root,CampusDesign.Room(r,side,at,app.State.Rooms.Any(upper=>upper.Kind==RoomKind.Staircase&&upper.Floor==r.Floor+1&&upper.X==r.X&&upper.Y==r.Y)));StaticBatchingUtility.Combine(root.gameObject);
             if(!CampusGrid.Walkway(r)){SchoolClass c=app.State.Classes.FirstOrDefault(c=>c.RoomId==r.Id);Label(root,c==null?app.RoomName(r.Kind):c.Name+" · "+app.Simulation.ClassSize(c)+"/"+app.Simulation.RoomSeats(r),new Vector3(r.Width/2f,2.95f,r.Height/2f));}
         }
         public void SetViewFloor()
