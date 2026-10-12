@@ -135,7 +135,7 @@ namespace KoSch.SchoolTycoon.Core
         {
             return new Ledger {
                 Day = State.Day, Students = State.Students,
-                Funding = ServedStudents * (Modern?Rules.Funding:28),
+                Funding = EducationFunding(ServedStudents),
                 Meals = Math.Min(State.Students, State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12)) * 3,
                 Salaries = State.Staff.Sum(e => e.Salary)*(Modern?Rules.UpkeepPercent:100)/100,
                 Maintenance = State.Rooms.Sum(RoomRunningCost) * (Researched(ResearchKind.GreenCampus) ? 80 : 100) / 100,

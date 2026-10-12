@@ -326,7 +326,7 @@ namespace KoSch.SchoolTycoon.Core
             if (state == null) return false;
             if (state.SaveVersion == 5) return ValidateSave(state);
             if(state.SaveVersion==4){if(!ValidateBase(state,4)||!ValidateAcademy(state)||!ValidateCurriculum(state))return false;UpgradeRektor(state);return ValidateSave(state);}
-            if(state.SaveVersion==3) { if(!ValidateBase(state,3)||!ValidateAcademy(state))return false; UpgradeCurriculum(state);UpgradeRektor(state);return ValidateSave(state); }
+            if(state.SaveVersion==3) { if(!ValidateBase(state,3)||!ValidateAcademy(state)||state.Staff.Any(e=>(int)e.Specialty>4)||state.Pupils.Any(p=>(int)p.Favourite>4)||state.Classes.Any(c=>c.Lessons.Any(t=>(int)t>4)))return false; UpgradeCurriculum(state);UpgradeRektor(state);return ValidateSave(state); }
             if (state.SaveVersion != 2 || !ValidateLegacySave(state)) return false;
             // Validate the legacy state before generating anything. Never repair a corrupt campus silently.
             foreach (Room room in state.Rooms) { room.Condition = 100; room.UpgradeLevel = 0; }

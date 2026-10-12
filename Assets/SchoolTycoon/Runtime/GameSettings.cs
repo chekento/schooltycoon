@@ -8,7 +8,7 @@ namespace KoSch.SchoolTycoon
         public static GameSettings Load()
         {
             GameSettings s=null;try{s=JsonUtility.FromJson<GameSettings>(PlayerPrefs.GetString("rektor-settings","") );}catch{ }
-            if(s==null)s=new GameSettings{Language=Application.systemLanguage==SystemLanguage.German?"de":"en"};s.Normalize();return s;
+            if(s==null)s=new GameSettings{Language=Application.systemLanguage==SystemLanguage.German?"de":"en",Graphics=Application.isMobilePlatform?1:2,FrameRate=Application.isMobilePlatform?30:60};s.Normalize();return s;
         }
         public void Normalize(){if(Language!="de"&&Language!="en")Language="de";Music=Mathf.Clamp01(Music);Effects=Mathf.Clamp01(Effects);CameraSensitivity=Mathf.Clamp(CameraSensitivity,.5f,2);Graphics=Mathf.Clamp(Graphics,0,2);FrameRate=FrameRate==60?60:30;UIScale=Mathf.Clamp(UIScale,.9f,1.25f);}
         public void Save(){Normalize();PlayerPrefs.SetString("rektor-settings",JsonUtility.ToJson(this));PlayerPrefs.Save();}

@@ -141,6 +141,7 @@ namespace KoSch.SchoolTycoon
         {
             var s = app.State;
             CardText(rightContent, app.T("SCHULENTWICKLUNG", "SCHOOL DEVELOPMENT"), app.T("Forschung braucht eine Bibliothek. Die Projektkosten fallen einmalig an; Fortschritt entsteht am Tagesende. Größere Bibliotheken forschen schneller.", "Research needs a library. Project costs are paid once; progress arrives at day end. Upgraded libraries work faster."), 132);
+            Text(rightContent,app.T("Frühe Forschung ab Tag 30/40; Förderung ab Tag 90; Kreativität ab Tag 140. Forschung bleibt über mehrere Schultage aktiv.","Early research from days 30/40; inclusion from day 90; creativity from day 140. Projects progress over multiple school days."),16,96,muted);
             if (s.ActiveResearch >= 0)
             {
                 ResearchSpec active = AcademyCatalog.Research[s.ActiveResearch];

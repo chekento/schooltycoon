@@ -277,6 +277,7 @@ namespace KoSch.SchoolTycoon
             Ledger f = app.Simulation.Forecast(); int net = f.Income - f.Expenses;
             CardText(rightContent, app.T("TAGESPROGNOSE", "DAILY FORECAST"), app.T("Baukosten und Einstellungsgebühren sind einmalig. Diese Positionen fallen jeden Schultag an.", "Construction and hiring fees are one-time costs. These items recur each school day."), 88);
             Text(rightContent, app.T("Bildungsförderung   +", "Education funding   +") + f.Funding + " €", 17, 32, teal);
+            if(app.Simulation.Modern)Text(rightContent,app.T("Förderstaffel: erste 48 Plätze voll, weitere 48 mit 80 %, danach 65 %. Große Schulen brauchen ein passendes Betriebsbudget.","Funding: first 48 seats at full rate, next 48 at 80%, then 65%. Larger schools need an appropriate operating budget."),15,102,muted);
             Text(rightContent, app.T("Mensaerlös   +", "Canteen income   +") + f.Meals + " €", 17, 32, teal);
             Text(rightContent, app.T("Gehälter   −", "Salaries   −") + f.Salaries + " €", 17, 32);
             Text(rightContent, app.T("Betriebskosten   −", "Maintenance   −") + f.Maintenance + " €", 17, 32);

@@ -126,12 +126,12 @@ namespace KoSch.SchoolTycoon
             Simulation=new SchoolSimulation(state);minute=state.ClockMinute;Paused=true;InMainMenu=false;ViewFloor=0;BuildKind=null;Demolition=false;SelectedRoomId=-1;Campus.Rebuild();CameraRig.Home();Settings.Apply(this);UI.Dismiss();UI.Refresh();
         }
         public void NewSchool(){ReturnToMenu();}
-        public void ReturnToMenu(){Save(false,true);InMainMenu=true;Paused=true;BuildKind=null;Demolition=false;Campus.ClearGhost();UI.ShowMainMenu();}
+        public void ReturnToMenu(){if(CurrentSlot>0&&State.HasDirector&&!Save(false,true))return;InMainMenu=true;Paused=true;BuildKind=null;Demolition=false;Campus.ClearGhost();UI.ShowMainMenu();}
         public void ToggleLanguage(){Settings.Language=Settings.Language=="de"?"en":"de";State.Language=Settings.Language;Settings.Save();UI.Refresh();Campus.Rebuild();Save(false);}
-        public void Save(bool notify,bool force=false)
+        public bool Save(bool notify,bool force=false)
         {
-            if(CurrentSlot<1||!State.HasDirector||!force&&!notify&&!Settings.Autosave)return;string error;
-            if(SchoolSave.Archive.Write(CurrentSlot,State,out error)){if(notify)UI.Notify(T("Campus gespeichert.","Campus saved."));}else UI.Notify(T("Speichern fehlgeschlagen: ","Save failed: ")+error);
+            if(CurrentSlot<1||!State.HasDirector)return true;if(!force&&!notify&&!Settings.Autosave)return true;string error;
+            if(SchoolSave.Archive.Write(CurrentSlot,State,out error)){if(notify)UI.Notify(T("Campus gespeichert.","Campus saved."));return true;}UI.Notify(T("Speichern fehlgeschlagen: ","Save failed: ")+error);return false;
         }
         private void OnApplicationPause(bool pause) { if (pause && Simulation != null && UI != null) Save(false,true); }
         private void OnApplicationQuit() { if (Simulation != null && UI != null) Save(false,true); }
@@ -176,8 +176,10 @@ namespace KoSch.SchoolTycoon
         public static void ImportLegacy(out string problem)
         {
             problem=null;if(Archive.HasData(1))return;
+            string previous=Path.Combine(Directory.GetParent(Application.persistentDataPath).FullName,"The School Simulation");
+            foreach(string folder in new[]{Application.persistentDataPath,previous})
             foreach(string file in new[]{"school-v4.json","school-v4.json.bak","school-v3.json","school-v3.json.bak","school-v2.json","school-v2.json.bak"})
-            {string path=Path.Combine(Application.persistentDataPath,file);if(!File.Exists(path))continue;try{if(new FileInfo(path).Length>SaveArchive.MaxBytes)throw new InvalidDataException("Oversized save");SchoolState s=JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));if(!SchoolSimulation.MigrateSave(s))throw new InvalidDataException("Invalid school");if(s.HasDirector&&Archive.Write(1,s,out problem))return;}catch(Exception e){problem=e.Message;}}
+            {string path=Path.Combine(folder,file);if(!File.Exists(path))continue;try{if(new FileInfo(path).Length>SaveArchive.MaxBytes)throw new InvalidDataException("Oversized save");SchoolState s=JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));if(!SchoolSimulation.MigrateSave(s))throw new InvalidDataException("Invalid school");if(s.HasDirector&&Archive.Write(1,s,out problem))return;}catch(Exception e){problem=e.Message;}}
         }
     }
 }

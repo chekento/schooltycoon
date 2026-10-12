@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 namespace KoSch.SchoolTycoon.Core
 {
     public enum VisualShape { Box, Sphere, Cylinder, Capsule }
@@ -72,8 +73,8 @@ namespace KoSch.SchoolTycoon.Core
             if(r.Kind==RoomKind.Garden)
             {
                 B(p,"Garden sandstone path",w/2,.17f,h/2,.55f,.04f,h-.15f,"D9CFB8");Tree(p,.55f,h-.6f,.7f,0);
-                for(int i=0;i<3;i++){B(p,"Raised vegetable bed",.6f,.28f,.45f+i*.52f,.7f,.24f,.4f,"B89171",VisualSurface.Timber);B(p,"Garden soil",.6f,.41f,.45f+i*.52f,.61f,.035f,.32f,"8C7763");for(int j=0;j<3;j++)S(p,"Growing vegetables",.38f+j*.2f,.48f,.45f+i*.52f,.2f,.18f,.24f,"91AF6D",VisualSurface.Leaf);}
-                Bench(p,w-.68f,.6f);Plant(p,w-.45f,h-.5f);return p;
+                if(Has(r,RoomItem.RaisedBeds))for(int i=0;i<3;i++){B(p,"Raised vegetable bed",.6f,.28f,.45f+i*.52f,.7f,.24f,.4f,"B89171",VisualSurface.Timber);B(p,"Garden soil",.6f,.41f,.45f+i*.52f,.61f,.035f,.32f,"8C7763");for(int j=0;j<3;j++)S(p,"Growing vegetables",.38f+j*.2f,.48f,.45f+i*.52f,.2f,.18f,.24f,"91AF6D",VisualSurface.Leaf);}
+                Bench(p,w-.68f,.6f);if(Has(r,RoomItem.Plants))Plant(p,w-.45f,h-.5f);if(r.FurnishingVersion==1)ItemVisuals(p,r);return p;
             }
             // Back walls have real door openings; near walls are low to keep the cutaway readable.
             for(int x=0;x<w;x++)
@@ -90,46 +91,88 @@ namespace KoSch.SchoolTycoon.Core
             for(int i=0;i<(int)(w*3);i++)B(p,"Oak floor strip",.18f+i*.32f,.161f,h/2,.29f,.008f,h-.23f,i%3==0?"E0CEB6":"E7D8C2",VisualSurface.Timber);
             Furnish(p,r);return p;
         }
+        private static bool Has(Room r,RoomItem item){return r.FurnishingVersion==0||r.Items.Contains(item);}
         private static void Furnish(List<VisualPart> p,Room r)
         {
             float w=r.Width,h=r.Height;
             switch(r.Kind)
             {
                 case RoomKind.Classroom:case RoomKind.ComputerLab:case RoomKind.LanguageLab:
-                    for(int row=0;row<3+(r.UpgradeLevel>0?1:0);row++)for(int col=0;col<4;col++)
-                    {float x=.6f+col*(w-.9f)/4,z=.55f+row*(h-1.1f)/4;Desk(p,x,z,.62f);Chair(p,x-.14f,z-.29f);Chair(p,x+.14f,z-.29f);if(r.Kind==RoomKind.ComputerLab)Monitor(p,x,z);else{Books(p,x-.09f,.715f,z,col);B(p,"Pencil",x+.14f,.71f,z,.025f,.014f,.19f,"DBAF60");if(r.Kind==RoomKind.LanguageLab)C(p,"Headphones",x+.11f,.77f,z,.13f,.08f,.13f,"708BBA");}}
+                    int desks=r.FurnishingVersion==1?9+2*r.Items.Count(i=>i==RoomItem.DeskRow1||i==RoomItem.DeskRow2||i==RoomItem.DeskRow3):12+r.UpgradeLevel*2;int cols=desks==9?3:4;
+                    for(int n=0;n<desks;n++)
+                    {int col=n%cols,row=n/cols;float x=.6f+col*(w-.9f)/cols,z=.55f+row*(h-1.1f)/4;Desk(p,x,z,.62f);Chair(p,x-.14f,z-.29f);Chair(p,x+.14f,z-.29f);if(r.Kind==RoomKind.ComputerLab&&Has(r,RoomItem.Workstations))Monitor(p,x,z);else{if(Has(r,RoomItem.TeachingMaterials))Books(p,x-.09f,.715f,z,col);B(p,"Pencil",x+.14f,.71f,z,.025f,.014f,.19f,"DBAF60");if(r.Kind==RoomKind.LanguageLab&&Has(r,RoomItem.Headsets))C(p,"Headphones",x+.11f,.77f,z,.13f,.08f,.13f,"708BBA");}}
                     Board(p,w,h);break;
                 case RoomKind.Library:
-                    for(int i=0;i<3;i++)Shelf(p,.7f+i*1.18f,h-.4f);for(int i=0;i<2;i++){Desk(p,1+i*1.65f,.9f,1.1f);Chair(p,.8f+i*1.65f,.6f);Chair(p,1.2f+i*1.65f,.6f);Books(p,1+i*1.65f,.72f,.9f,i);}
+                    for(int i=0;i<(Has(r,RoomItem.ReferenceBooks)?3:1);i++)Shelf(p,.7f+i*1.18f,h-.4f);for(int i=0;i<2;i++){Desk(p,1+i*1.65f,.9f,1.1f);Chair(p,.8f+i*1.65f,.6f);Chair(p,1.2f+i*1.65f,.6f);Books(p,1+i*1.65f,.72f,.9f,i);}
                     B(p,"Reading rug",w/2,.18f,h/2,1.8f,.024f,1,"AECAC1",VisualSurface.Fabric);break;
                 case RoomKind.ScienceLab:
-                    for(int i=0;i<4;i++){float x=.9f+(i%2)*1.6f,z=.85f+(i/2)*1.15f;Desk(p,x,z,1.25f);Chair(p,x-.3f,z-.32f);Chair(p,x+.3f,z-.32f);C(p,"Beaker liquid",x-.26f,.78f,z,.14f,.16f,.14f,"88C6BA",VisualSurface.Glass);C(p,"Glass beaker rim",x-.26f,.87f,z,.16f,.025f,.16f,"C0E2D9",VisualSurface.Glass);B(p,"Microscope base",x+.23f,.73f,z,.18f,.04f,.2f,"A4BCC1");B(p,"Microscope stand",x+.23f,.85f,z,.045f,.25f,.05f,"6B828D",VisualSurface.Metal);B(p,"Microscope lens",x+.2f,.98f,z-.04f,.1f,.07f,.17f,"526E7D");}
+                    for(int i=0;i<4;i++){float x=.9f+(i%2)*1.6f,z=.85f+(i/2)*1.15f;Desk(p,x,z,1.25f);Chair(p,x-.3f,z-.32f);Chair(p,x+.3f,z-.32f);if(Has(r,RoomItem.ChemistrySet)){C(p,"Beaker liquid",x-.26f,.78f,z,.14f,.16f,.14f,"88C6BA",VisualSurface.Glass);C(p,"Glass beaker rim",x-.26f,.87f,z,.16f,.025f,.16f,"C0E2D9",VisualSurface.Glass);}if(Has(r,RoomItem.Microscopes)){B(p,"Microscope base",x+.23f,.73f,z,.18f,.04f,.2f,"A4BCC1");B(p,"Microscope stand",x+.23f,.85f,z,.045f,.25f,.05f,"6B828D",VisualSurface.Metal);B(p,"Microscope lens",x+.2f,.98f,z-.04f,.1f,.07f,.17f,"526E7D");}}
                     Board(p,w,h);break;
                 case RoomKind.ArtRoom:
-                    for(int i=0;i<3;i++){float x=.8f+i*1.12f;B(p,"Easel legs",x,.71f,1.45f,.08f,1.1f,.08f,"CAA17F",VisualSurface.Timber);B(p,"Artist canvas",x,1.14f,1.4f,.68f,.78f,.065f,"FFF1D6");S(p,"Painted colour field",x,1.17f,1.36f,.41f,.33f,.018f,Accents[i]);B(p,"Painting horizon",x,1.02f,1.345f,.55f,.045f,.01f,"A2C7B9");C(p,"Paint pot",x,.35f,1.1f,.13f,.13f,.13f,Accents[i+1]);}break;
+                    if(Has(r,RoomItem.Easels))for(int i=0;i<3;i++){float x=.8f+i*1.12f;B(p,"Easel legs",x,.71f,1.45f,.08f,1.1f,.08f,"CAA17F",VisualSurface.Timber);B(p,"Artist canvas",x,1.14f,1.4f,.68f,.78f,.065f,"FFF1D6");S(p,"Painted colour field",x,1.17f,1.36f,.41f,.33f,.018f,Accents[i]);B(p,"Painting horizon",x,1.02f,1.345f,.55f,.045f,.01f,"A2C7B9");C(p,"Paint pot",x,.35f,1.1f,.13f,.13f,.13f,Accents[i+1]);}break;
                 case RoomKind.MusicRoom:
-                    B(p,"Music stage",w/2,.23f,h-.7f,w-.5f,.14f,1.05f,"C5A384",VisualSurface.Timber);B(p,"Piano body",1.05f,.9f,h-.65f,1.5f,1.15f,.55f,"5E7385");
+                    B(p,"Music stage",w/2,.23f,h-.7f,w-.5f,.14f,1.05f,"C5A384",VisualSurface.Timber);if(Has(r,RoomItem.AcousticPiano)){B(p,"Piano body",1.05f,.9f,h-.65f,1.5f,1.15f,.55f,"5E7385");
                     for(int i=0;i<15;i++){B(p,"Ivory piano key",.42f+i*.085f,.76f,h-1.03f,.077f,.045f,.27f,"FFF8DF");if(i%7!=2&&i%7!=6)B(p,"Ebony piano key",.46f+i*.085f,.8f,h-.96f,.035f,.06f,.15f,"425164");}
-                    C(p,"Bass drum",w-1,.52f,1,.56f,.52f,.56f,"DEAA99");C(p,"Cymbal",w-1.25f,1.2f,1,.65f,.03f,.65f,"DDC278",VisualSurface.Metal);for(int i=0;i<3;i++){Chair(p,.7f+i,.7f,"C6ADCD");B(p,"Music stand",.7f+i,.72f,1.1f,.025f,1.1f,.025f,"71868F",VisualSurface.Metal);B(p,"Sheet music",.7f+i,1.19f,1.1f,.31f,.2f,.025f,"FAF3DB");}break;
+                    }if(Has(r,RoomItem.Instruments)){C(p,"Bass drum",w-1,.52f,1,.56f,.52f,.56f,"DEAA99");C(p,"Cymbal",w-1.25f,1.2f,1,.65f,.03f,.65f,"DDC278",VisualSurface.Metal);}for(int i=0;i<3;i++){Chair(p,.7f+i,.7f,"C6ADCD");B(p,"Music stand",.7f+i,.72f,1.1f,.025f,1.1f,.025f,"71868F",VisualSurface.Metal);B(p,"Sheet music",.7f+i,1.19f,1.1f,.31f,.2f,.025f,"FAF3DB");}break;
                 case RoomKind.Theatre:
                     B(p,"Performance stage",w/2,.33f,h-.75f,w-.35f,.34f,1.3f,"C8A080",VisualSurface.Timber);for(int i=0;i<2;i++)B(p,"Velvet stage curtain",.3f+i*(w-.6f),1.63f,h-.38f,.43f,2.5f,.22f,"C88F9A",VisualSurface.Fabric);
                     for(int i=0;i<8;i++)Chair(p,.75f+(i%4)*.8f,.6f+(i/4)*.6f,"B894B7");break;
                 case RoomKind.Workshop:
-                    for(int i=0;i<2;i++){Desk(p,1.1f+i*1.75f,1.2f,1.4f);B(p,"Bench vice",1.15f+i*1.75f,.8f,1.1f,.19f,.22f,.22f,"7A98A3",VisualSurface.Metal);B(p,"Wood project",.8f+i*1.75f,.73f,1.3f,.33f,.12f,.3f,"D9B080",VisualSurface.Timber);}
-                    B(p,"Pegboard",w/2,1.6f,h-.2f,2.8f,1.1f,.09f,"D7C4A5");for(int i=0;i<9;i++)B(p,"Workshop tool",w/2-1.1f+i*.27f,1.58f+(i%2)*.13f,h-.27f,.04f,.28f,.055f,i%2==0?"6E8992":"CB966C",VisualSurface.Metal);break;
+                    for(int i=0;i<2;i++){Desk(p,1.1f+i*1.75f,1.2f,1.4f);if(Has(r,RoomItem.BenchTools))B(p,"Bench vice",1.15f+i*1.75f,.8f,1.1f,.19f,.22f,.22f,"7A98A3",VisualSurface.Metal);B(p,"Wood project",.8f+i*1.75f,.73f,1.3f,.33f,.12f,.3f,"D9B080",VisualSurface.Timber);}
+                    B(p,"Pegboard",w/2,1.6f,h-.2f,2.8f,1.1f,.09f,"D7C4A5");if(Has(r,RoomItem.BenchTools))for(int i=0;i<9;i++)B(p,"Workshop tool",w/2-1.1f+i*.27f,1.58f+(i%2)*.13f,h-.27f,.04f,.28f,.055f,i%2==0?"6E8992":"CB966C",VisualSurface.Metal);break;
                 case RoomKind.FoodLab:case RoomKind.Canteen:
                     for(int i=0;i<4;i++){float x=.5f+i*.92f;B(p,"Kitchen cabinet",x,.6f,h-.42f,.86f,.88f,.57f,"B1C6B4");B(p,"Stone worktop",x,1.08f,h-.42f,.9f,.06f,.61f,"EFE8D9");B(p,"Brass handle",x,.88f,h-.72f,.17f,.025f,.025f,"C7AD76",VisualSurface.Metal);}
                     B(p,"Oven door",1.4f,.61f,h-.73f,.61f,.53f,.025f,"617A89",VisualSurface.Glass);for(int i=0;i<2;i++){Desk(p,1.05f+i*1.75f,1.05f,1.2f);Chair(p,.8f+i*1.75f,.7f);Chair(p,1.3f+i*1.75f,.7f);C(p,"Plate",1.05f+i*1.75f,.73f,1.05f,.27f,.025f,.27f,"F6F2DE");S(p,"Fresh fruit",1.05f+i*1.75f,.8f,1.05f,.1f,.13f,.1f,"D7AD66");}break;
                 case RoomKind.Toilet:
                     for(int i=0;i<2;i++){float x=.5f+i*.9f;C(p,"Toilet bowl",x,.4f,h-.55f,.4f,.34f,.47f,"FCF5E6");B(p,"Toilet tank",x,.67f,h-.31f,.38f,.52f,.18f,"F3F4E9");B(p,"Basin",x,.78f,.42f,.51f,.16f,.33f,"F3F4E9");B(p,"Mirror",x,1.34f,.14f,.48f,.64f,.03f,"B6D3D6",VisualSurface.Glass);}break;
                 case RoomKind.Staffroom:
-                    B(p,"Sofa frame",w-.51f,.52f,h/2,.65f,.6f,1.28f,"B29FBD",VisualSurface.Fabric);for(int i=0;i<3;i++)B(p,"Sofa cushion",w-.56f,.76f,h/2-.42f+i*.4f,.5f,.14f,.36f,"CAB9D2",VisualSurface.Fabric);
+                    if(Has(r,RoomItem.RestSeats)){B(p,"Sofa frame",w-.51f,.52f,h/2,.65f,.6f,1.28f,"B29FBD",VisualSurface.Fabric);for(int i=0;i<3;i++)B(p,"Sofa cushion",w-.56f,.76f,h/2-.42f+i*.4f,.5f,.14f,.36f,"CAB9D2",VisualSurface.Fabric);}
                     Desk(p,1,.9f,.95f);Books(p,1,.73f,.9f,1);C(p,"Tea cup",1.2f,.77f,.9f,.1f,.12f,.1f,"E0B991");break;
                 case RoomKind.Gym:
                     B(p,"Sports floor",w/2,.18f,h/2,w-.4f,.02f,h-.4f,"D7B68C",VisualSurface.Timber);for(int i=0;i<3;i++)B(p,"Court line",w/2,.195f,.45f+i*(h-.9f)/2,w-.7f,.009f,.035f,"FFF1D5");B(p,"Centre line",w/2,.197f,h/2,.035f,.009f,h-.6f,"FFF1D5");
-                    B(p,"Basketball backboard",w/2,2.1f,h-.2f,.95f,.65f,.06f,"E8EFDB");B(p,"Basket rim",w/2,1.85f,h-.48f,.32f,.035f,.25f,"B98B63",VisualSurface.Metal);S(p,"Basketball",w/2+.6f,.36f,h/2,.35f,.35f,.35f,"D3A070");B(p,"Exercise mat",.7f,.21f,1,.55f,.08f,1.1f,"A6BCCA",VisualSurface.Fabric);break;
+                    B(p,"Basketball backboard",w/2,2.1f,h-.2f,.95f,.65f,.06f,"E8EFDB");B(p,"Basket rim",w/2,1.85f,h-.48f,.32f,.035f,.25f,"B98B63",VisualSurface.Metal);if(Has(r,RoomItem.SportsEquipment)){S(p,"Basketball",w/2+.6f,.36f,h/2,.35f,.35f,.35f,"D3A070");B(p,"Exercise mat",.7f,.21f,1,.55f,.08f,1.1f,"A6BCCA",VisualSurface.Fabric);}break;
             }
-            Plant(p,.32f,.37f,.85f);
+            if(Has(r,RoomItem.Plants))Plant(p,.32f,.37f,.85f);
+            if(r.FurnishingVersion==1)ItemVisuals(p,r);
+        }
+        private static void ItemVisuals(List<VisualPart> p,Room r)
+        {
+            float w=r.Width,h=r.Height;foreach(RoomItem item in r.Items)
+            {
+                switch(item)
+                {
+                    case RoomItem.Storage:Shelf(p,w-.65f,h-.4f);break;
+                    case RoomItem.TaskLighting:B(p,"Warm learning wall light",.2f,2.15f,h/2,.09f,.28f,.45f,"F2E2B9",VisualSurface.Screen);break;
+                    case RoomItem.ErgonomicChairs:B(p,"Ergonomic lumbar cushions",w-.38f,.5f,.9f,.28f,.28f,.07f,"9EC7B0",VisualSurface.Fabric);break;
+                    case RoomItem.SafetyKit:case RoomItem.LabSafety:case RoomItem.HygieneKit:B(p,"Safety cabinet",.16f,1.14f,h-.6f,.13f,.45f,.5f,"BDD0BE");B(p,"First aid sign",.237f,1.16f,h-.6f,.01f,.06f,.23f,"FFF4DC");B(p,"First aid cross",.24f,1.16f,h-.6f,.01f,.22f,.06f,"FFF4DC");break;
+                    case RoomItem.AcousticPanels:for(int i=0;i<3;i++)B(p,"Sound absorbing wall panel",.15f,1.25f,.6f+i*.6f,.08f,.92f,.44f,"B1C6B9",VisualSurface.Fabric);break;
+                    case RoomItem.DisplayScreen:B(p,"Interactive display frame",w/2,1.65f,h-.3f,1.62f,.91f,.08f,"647D85");B(p,"Interactive learning display",w/2,1.65f,h-.347f,1.5f,.81f,.019f,"A6CEC8",VisualSurface.Screen);for(int i=0;i<4;i++)B(p,"Interactive chart",w/2-.52f+i*.32f,1.6f,h-.363f,.18f,.25f+i*.09f,.012f,Accents[i]);break;
+                    case RoomItem.AccessibilityDesk:Desk(p,w-.65f,.62f,.9f);B(p,"Accessible desk controls",w-.35f,.69f,.62f,.12f,.025f,.09f,"789F94");break;
+                    case RoomItem.ClimateControl:B(p,"Climate unit",.16f,2.1f,h-.75f,.18f,.37f,.72f,"E8E9DD");for(int i=0;i<5;i++)B(p,"Air vent",.257f,2.01f+i*.04f,h-.75f,.009f,.011f,.55f,"AABCB6");break;
+                    case RoomItem.DigitalLibrary:case RoomItem.RecordingDesk:case RoomItem.VideoCalls:case RoomItem.MediaStudio:case RoomItem.CADKit:Desk(p,w-.72f,h-.6f,.9f);Monitor(p,w-.72f,h-.6f);break;
+                    case RoomItem.NetworkKit:B(p,"Network cabinet",w-.4f,.58f,h-.55f,.45f,.85f,.44f,"879FA6");for(int i=0;i<4;i++)B(p,"Network status light",w-.43f,.4f+i*.12f,h-.783f,.12f,.025f,.012f,"C9E4B4",VisualSurface.Screen);break;
+                    case RoomItem.Fabricator:B(p,"Fabricator frame",w-.8f,.89f,h-.6f,.8f,1.4f,.8f,"89AAA7");B(p,"Fabricator glass",w-.8f,.98f,h-1.01f,.63f,.93f,.03f,"BCDDD0",VisualSurface.Glass);break;
+                    case RoomItem.ElectronicsKit:B(p,"Circuit learning station",w-.8f,.75f,h-.6f,.55f,.08f,.35f,"75A593");for(int i=0;i<4;i++)B(p,"Circuit component",w-1+i*.13f,.83f,h-.6f,.07f,.07f,.08f,"D5BB88");break;
+                    case RoomItem.CookingUtensils:case RoomItem.NutritionKit:case RoomItem.MealPrep:case RoomItem.FreshFood:C(p,"Food preparation bowl",w-.8f,1.16f,h-.45f,.35f,.2f,.35f,"E5C8A1");for(int i=0;i<3;i++)S(p,"Fresh produce",w-.9f+i*.09f,1.29f,h-.45f,.13f,.13f,.13f,Accents[i]);break;
+                    case RoomItem.AllergyStation:B(p,"Labelled food storage",w-.7f,1.23f,h-.45f,.42f,.24f,.3f,"CCD9C1");break;
+                    case RoomItem.ServingLine:B(p,"Extra serving station",w-.6f,.67f,1,.66f,.95f,.6f,"BBCCA9");break;
+                    case RoomItem.StageLights:for(int i=0;i<3;i++)B(p,"Theatre spotlight",.6f+i*.8f,2.47f,h-.28f,.2f,.24f,.3f,"739D96",VisualSurface.Metal);break;
+                    case RoomItem.SoundRig:B(p,"Stage speaker",w-.55f,1.18f,h-.5f,.36f,1.6f,.42f,"7D8292");S(p,"Speaker cone",w-.55f,1.35f,h-.72f,.22f,.22f,.025f,"B8C7C1");break;
+                    case RoomItem.ProductionStage:B(p,"Flexible stage wing",.57f,.55f,h-.7f,.65f,.64f,1.1f,"CAA884",VisualSurface.Timber);break;
+                    case RoomItem.LanguageBooks:Books(p,w-.7f,.76f,1.2f,4);break;
+                    case RoomItem.Printmaking:B(p,"Printing press",w-.8f,.91f,h-.6f,.68f,.7f,.65f,"92ACB2",VisualSurface.Metal);C(p,"Printing roller",w-.8f,1.26f,h-.6f,.44f,.1f,.44f,"D3B4C4");break;
+                    case RoomItem.QuietStudy:B(p,"Quiet study seat",w-.65f,.43f,1.1f,.7f,.55f,.7f,"B4CBB8",VisualSurface.Fabric);break;
+                    case RoomItem.TeamSports:case RoomItem.AdaptiveSports:B(p,"Sports storage rack",w-.5f,.61f,h-.5f,.65f,.9f,.48f,"ACC5BE");for(int i=0;i<3;i++)S(p,"Sports ball",w-.71f+i*.21f,.91f,h-.5f,.2f,.2f,.2f,Accents[i]);break;
+                    case RoomItem.Handwash:B(p,"Extra washbasin",w-.45f,.78f,1.15f,.5f,.17f,.33f,"EDF1E1");break;
+                    case RoomItem.SensorTaps:B(p,"Sensor tap",.52f,.95f,.38f,.08f,.15f,.05f,"ABB9B5",VisualSurface.Metal);break;
+                    case RoomItem.CoffeeStation:B(p,"Staff kitchenette",w-.6f,.6f,h-.4f,.78f,.88f,.45f,"C7B49E");C(p,"Tea pot",w-.6f,1.16f,h-.4f,.21f,.23f,.21f,"A2BDBB");break;
+                    case RoomItem.TrainingCorner:B(p,"Team learning noticeboard",.16f,1.6f,h/2,.07f,.72f,1.02f,"D3C7AF");break;
+                    case RoomItem.RainBarrel:C(p,"Rainwater barrel",w-.43f,.56f,h-.43f,.57f,.79f,.57f,"ABC2B5");break;
+                    case RoomItem.OutdoorClass:Desk(p,w/2,1.1f,1.3f);Chair(p,w/2-.3f,.72f);Chair(p,w/2+.3f,.72f);break;
+                    case RoomItem.WallArt:B(p,"Student gallery frame",.14f,1.56f,h/2,.07f,.76f,.92f,"D5B89B",VisualSurface.Timber);B(p,"Student gallery painting",.18f,1.56f,h/2,.016f,.64f,.8f,"B1CAB7");break;
+                    case RoomItem.SignatureDecor:B(p,"Signature woven rug",w/2,.18f,h/2,1.6f,.026f,.92f,"C6B9CE",VisualSurface.Fabric);Plant(p,w-.4f,.38f,1.2f);break;
+                }
+            }
         }
         private static void Tree(List<VisualPart> p,float x,float z,float scale,int variety)
         {

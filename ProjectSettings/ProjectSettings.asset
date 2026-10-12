@@ -5,8 +5,8 @@ PlayerSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 28
   companyName: KoSch
-  productName: The School Simulation
-  bundleVersion: 0.4.0
+  productName: Rektor
+  bundleVersion: 0.5.0
   defaultScreenWidth: 1600
   defaultScreenHeight: 900
   runInBackground: 0
@@ -21,9 +21,9 @@ PlayerSettings:
   allowedAutorotateToLandscapeRight: 1
   allowedAutorotateToLandscapeLeft: 1
   applicationIdentifier:
-    Standalone: cloud.kosch.schoolsimulation
-    Android: cloud.kosch.schoolsimulation
-  AndroidBundleVersionCode: 2
+    Standalone: cloud.kosch.rektor
+    Android: cloud.kosch.rektor
+  AndroidBundleVersionCode: 5
   AndroidMinSdkVersion: 26
   AndroidTargetSdkVersion: 0
   AndroidTargetArchitectures: 2
