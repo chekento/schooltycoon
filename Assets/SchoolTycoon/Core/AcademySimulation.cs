@@ -46,7 +46,7 @@ namespace KoSch.SchoolTycoon.Core
             foreach (Room room in State.Rooms.Where(r => r.Kind == RoomKind.Classroom))
                 if (!State.Classes.Any(c => c.RoomId == room.Id))
                 {
-                    State.Classes.Add(new SchoolClass { RoomId = room.Id, Name = "K" + room.Id, Lessons = new List<Subject>(State.Timetable) });
+                    State.Classes.Add(new SchoolClass { RoomId = room.Id, Name = "K" + room.Id, Lessons = new List<Subject>(State.Timetable), Week = State.Region==CurriculumRegion.International ? CurriculumCatalog.RepeatDay(State.Timetable) : CurriculumCatalog.Week(State.Region) });
                     added.Add(room.Id);
                 }
             foreach (SchoolClass c in State.Classes) if (ClassTeacher(c) == null) c.TeacherId = 0;
@@ -68,6 +68,7 @@ namespace KoSch.SchoolTycoon.Core
                     .OrderBy(c => ClassTeacher(c) == null ? 1 : 0).ThenBy(ClassSize).FirstOrDefault();
                 if (group != null) pupil.ClassRoomId = group.RoomId;
             }
+            EnsureCourseMarks();
         }
         public Result AssignTeacher(int roomId, int teacherId)
         {
@@ -85,14 +86,14 @@ namespace KoSch.SchoolTycoon.Core
             if (pupil == null || group == null) return Result.Fail("invalid");
             if (pupil.ClassRoomId == roomId) return Result.Ok();
             if (ClassSize(group) >= RoomSeats(State.Rooms.First(r => r.Id == roomId))) return Result.Fail("full");
-            pupil.ClassRoomId = roomId; return Result.Ok();
+            pupil.ClassRoomId = roomId; EnsureCourseMarks(); return Result.Ok();
         }
         public Result SetClassLesson(int roomId, int slot, Subject subject)
         {
             if (!CanOperate) return Result.Fail("blocked");
             SchoolClass group = State.Classes.FirstOrDefault(c => c.RoomId == roomId);
-            if (group == null || slot < 0 || slot >= 6 || !Enum.IsDefined(typeof(Subject), subject)) return Result.Fail("invalid");
-            group.Lessons[slot] = subject; return Result.Ok();
+            if (group == null || slot < 0 || slot >= 6 || !CurriculumCatalog.Valid(subject,State)) return Result.Fail("invalid");
+            group.Lessons[slot] = subject; for(int d=0;d<5;d++)group.Week[d*6+slot]=subject;EnsureCourseMarks();return Result.Ok();
         }
         public Result SetClassName(int roomId, string name)
         {
@@ -106,7 +107,7 @@ namespace KoSch.SchoolTycoon.Core
         {
             if (!CanOperate) return Result.Fail("blocked");
             Room room = State.Rooms.FirstOrDefault(r => r.Id == id);
-            if (room == null || room.Kind == RoomKind.Corridor) return Result.Fail("invalid");
+            if (room == null || CampusGrid.Walkway(room)) return Result.Fail("invalid");
             if (room.UpgradeLevel >= 2) return Result.Fail("maxed");
             int cost = UpgradeCost(room);
             if (State.Cash < cost) return Result.Fail("funds");
@@ -145,7 +146,7 @@ namespace KoSch.SchoolTycoon.Core
             int cost = option == 0 ? 90 : option == 1 ? 60 : 0;
             if (State.Cash < cost && cost > 0) return Result.Fail("funds");
             State.Cash -= cost; pupil.LastSupportDay = State.Day;
-            if (option == 0) { int weakest = pupil.Scores.IndexOf(pupil.Scores.Min()); pupil.Scores[weakest] = Clamp(pupil.Scores[weakest] + 8, 0, 100); pupil.Stress = Clamp(pupil.Stress + 3, 0, 100); }
+            if (option == 0) { Subject weakest=PupilCourses(pupil).OrderBy(t=>Score(pupil,t)).First(); SetScore(pupil,weakest,Score(pupil,weakest)+8); pupil.Stress = Clamp(pupil.Stress + 3, 0, 100); }
             else { pupil.Stress = Clamp(pupil.Stress - (option == 1 ? 18 : 6), 0, 100); pupil.Wellbeing = Clamp(pupil.Wellbeing + (option == 1 ? 10 : 3), 0, 100); }
             return Result.Ok();
         }
@@ -198,8 +199,9 @@ namespace KoSch.SchoolTycoon.Core
                 kind = employee.Role == StaffRole.Caretaker ? RoomKind.Toilet : RoomKind.Staffroom;
             else if (group != null && ClassTeacher(group) != null && slot >= 0)
             {
-                Subject subject = group.Lessons[slot];
-                kind = subject == Subject.Science ? RoomKind.ScienceLab : subject == Subject.Arts ? RoomKind.ArtRoom : subject == Subject.Sports ? RoomKind.Gym : RoomKind.Classroom;
+                Subject subject = Today(group)[slot];
+                Room assigned=SpecialistRoom(group,subject,slot);
+                return assigned ?? State.Rooms.First(r=>r.Id==group.RoomId);
             }
             else kind = RoomKind.Classroom;
             List<Room> rooms = State.Rooms.Where(r => r.Kind == kind).ToList();
@@ -229,26 +231,22 @@ namespace KoSch.SchoolTycoon.Core
                 if (teacher != null && !pupil.Absent)
                 {
                     Room room = State.Rooms.First(r => r.Id == group.RoomId);
-                    foreach (Subject subject in group.Lessons.Distinct())
+                    foreach (Subject subject in Today(group).Distinct())
                     {
                         int target = EffectiveSkill(teacher) / 2 + pupil.Ability / 3 + State.SupplyBudget * 3 + room.UpgradeLevel * 3 - Math.Max(0, 65 - room.Condition) / 8;
-                        target += teacher.Specialty == subject ? 6 : 0; target += pupil.Favourite == subject ? 5 : 0;
+                        target += Expertise(teacher,subject) ? 6 : 0; target += pupil.Favourite == CurriculumCatalog.Foundation(CurriculumCatalog.Get(subject,State).Group) ? 5 : 0;
                         target += State.Rooms.Where(r => r.Kind == RoomKind.Staffroom).Sum(r => 2 + r.UpgradeLevel * 2);
-                        target += FacilityLearning(subject) + (Researched(ResearchKind.DigitalLearning) ? 6 : 0) + (Researched(ResearchKind.InclusiveLearning) ? 5 : 0);
-                        target -= pupil.Stress / 10 + (pupil.Grade - 1) * 3;
-                        int score = pupil.Scores[(int)subject], difference = Clamp(target, 0, 100) - score;
-                        pupil.Scores[(int)subject] = Clamp(score + (difference == 0 ? 0 : Math.Sign(difference) * Math.Max(1, Math.Abs(difference) / 10)), 0, 100);
+                        target += LessonFacilityBonus(group,subject) + (Researched(ResearchKind.DigitalLearning) ? 6 : 0) + (Researched(ResearchKind.InclusiveLearning) ? 5 : 0);
+                        target -= pupil.Stress / 10 + Math.Min(18,(pupil.Grade - 1) * 3) + (CurriculumCatalog.Get(subject,State).Difficulty-1)*3 + (group.CourseLevel-1)*5;
+                        int score = Score(pupil,subject), difference = Clamp(target, 0, 100) - score;
+                        SetScore(pupil,subject,score+(difference==0?0:Math.Sign(difference)*Math.Max(1,Math.Abs(difference)/10))*Math.Min(2,Today(group).Count(t=>t==subject)));
+                        CourseMark mark=pupil.CourseMarks.FirstOrDefault(m=>m.Subject==subject);if(mark!=null){mark.Lessons+=Today(group).Count(t=>t==subject);mark.LastTaught=State.Day;}
                     }
                 }
-                foreach (Subject subject in Enum.GetValues(typeof(Subject)))
-                {
-                    if (State.Clubs.Any(k => ClubAvailable(k) && (AcademyCatalog.Clubs[(int)k].Subject == subject || Researched(ResearchKind.CreativeCampus))) && !pupil.Absent)
-                        pupil.Scores[(int)subject] = Clamp(pupil.Scores[(int)subject] + 1, 0, 100);
-                    if (State.SupportPolicy == 2 && pupil.Scores[(int)subject] < 50 && teacher != null && !pupil.Absent)
-                        pupil.Scores[(int)subject] = Clamp(pupil.Scores[(int)subject] + 1, 0, 100);
-                }
+                ClubLearning(pupil);
+                if(State.SupportPolicy==2 && teacher!=null&&!pupil.Absent) foreach(Subject sub in PupilCourses(pupil).ToList()) if(Score(pupil,sub)<50)SetScore(pupil,sub,Score(pupil,sub)+1);
             }
-            report.StrugglingPupils = State.Pupils.Where(p => p.Scores.Min() < 45 || p.Stress > 65 || p.Wellbeing < 40).OrderBy(p => p.Scores.Min()).Take(5).Select(p => p.Id).ToList();
+            report.StrugglingPupils=State.Pupils.Where(NeedsSupport).OrderBy(WeakestScore).Take(5).Select(p=>p.Id).ToList();
             foreach (Employee employee in State.Staff)
             {
                 bool teaching = State.Classes.Any(c => c.TeacherId == employee.Id);
@@ -275,17 +273,18 @@ namespace KoSch.SchoolTycoon.Core
                 foreach (Pupil pupil in State.Pupils)
                 {
                     int attendancePenalty = pupil.DaysEnrolled == 0 ? 0 : Math.Max(0, 90 - pupil.DaysAttended * 100 / pupil.DaysEnrolled) / 3;
-                    pupil.LastExam = Clamp((int)pupil.Scores.Average() - attendancePenalty - pupil.Stress / 15, 0, 100);
+                    pupil.LastExam = Clamp(PupilAverage(pupil) - attendancePenalty - pupil.Stress / 15, 0, 100);
                     if (pupil.LastExam >= 50) term.Passed++;
                     if (State.Day % 60 == 0)
                     {
                         if (pupil.LastExam < 45) term.Repeated++;
-                        else if (pupil.Grade == 6) { term.Graduated++; graduated++; graduateIds.Add(pupil.Id); }
+                        else if (pupil.Grade == State.GraduationGrade) { term.Graduated++; graduated++; graduateIds.Add(pupil.Id); }
                         else pupil.Grade++;
                     }
                 }
                 term.Average = term.Students == 0 ? 0 : (int)State.Pupils.Average(p => p.LastExam);
                 term.SubjectAverages = Enumerable.Range(0, 5).Select(s => term.Students == 0 ? 0 : (int)State.Pupils.Average(p => p.Scores[s])).ToList();
+                term.Courses=State.Pupils.SelectMany(PupilCourses).Distinct().Select(sub=>{var ps=State.Pupils.Where(p=>PupilCourses(p).Contains(sub)).ToList();return new CourseResult{Subject=sub,Students=ps.Count,Average=(int)ps.Average(p=>Score(p,sub))};}).ToList();
                 State.Reports.Add(term); if (State.Reports.Count > 30) State.Reports.RemoveAt(0);
                 State.ExamsHeld++; report.TermFinished = term.Term;
                 if (graduated > 0) State.Pupils.RemoveAll(p => graduateIds.Contains(p.Id));
@@ -294,13 +293,6 @@ namespace KoSch.SchoolTycoon.Core
             State.Students = State.Pupils.Count;
             CheckAchievements();
             return graduated;
-        }
-        private int FacilityLearning(Subject subject)
-        {
-            int result = State.Rooms.Where(r => r.Kind == RoomKind.Library).Sum(r => 3 + r.UpgradeLevel);
-            RoomKind kind = subject == Subject.Science ? RoomKind.ScienceLab : subject == Subject.Arts ? RoomKind.ArtRoom : subject == Subject.Sports ? RoomKind.Gym : RoomKind.Classroom;
-            if (kind != RoomKind.Classroom) result += State.Rooms.Where(r => r.Kind == kind).Sum(r => 5 + r.UpgradeLevel * 2);
-            return result;
         }
         private void ChangeEnrollment(int joined, int left)
         {
@@ -329,7 +321,8 @@ namespace KoSch.SchoolTycoon.Core
         public static bool MigrateSave(SchoolState state)
         {
             if (state == null) return false;
-            if (state.SaveVersion == 3) return ValidateSave(state);
+            if (state.SaveVersion == 4) return ValidateSave(state);
+            if(state.SaveVersion==3) { if(!ValidateBase(state,3)||!ValidateAcademy(state))return false; UpgradeCurriculum(state);return ValidateSave(state); }
             if (state.SaveVersion != 2 || !ValidateLegacySave(state)) return false;
             // Validate the legacy state before generating anything. Never repair a corrupt campus silently.
             foreach (Room room in state.Rooms) { room.Condition = 100; room.UpgradeLevel = 0; }
@@ -339,9 +332,17 @@ namespace KoSch.SchoolTycoon.Core
             state.Graduates = 0; state.ExamsHeld = 0; state.AchievementMask = 0;
             state.CompletedResearch = new List<ResearchKind>(); state.Clubs = new List<ClubKind>(); state.ClubLicenses = new List<ClubKind>();
             state.Reports = new List<TermReport>(); state.DailyReport = new DailyReport();
-            InitializeAcademy(state); return ValidateSave(state);
+            InitializeAcademy(state); UpgradeCurriculum(state); return ValidateSave(state);
         }
 
+        private static void UpgradeCurriculum(SchoolState state)
+        {
+            state.SaveVersion=4;state.Region=CurriculumRegion.International;state.GraduationGrade=6;state.NextCustomSubject=1000;state.CustomSubjects=new List<SubjectSpec>();
+            state.ActiveContract=-1;state.ContractYear=state.ContractProgress=state.Prestige=0;state.CareerHistory=new List<CareerRecord>();
+            foreach(SchoolClass c in state.Classes){c.Week=CurriculumCatalog.RepeatDay(c.Lessons);c.CourseLevel=1;}
+            foreach(Pupil p in state.Pupils)p.CourseMarks=new List<CourseMark>();foreach(TermReport t in state.Reports)t.Courses=new List<CourseResult>();
+            state.DailyReport.CareerFinished=-1;state.DailyReport.CareerReward=0;
+        }
         private static bool ValidateAcademy(SchoolState s)
         {
             if (s.Pupils == null || s.Classes == null || s.CompletedResearch == null || s.Clubs == null || s.ClubLicenses == null || s.Reports == null || s.DailyReport == null || s.DailyReport.StrugglingPupils == null) return false;
@@ -354,16 +355,16 @@ namespace KoSch.SchoolTycoon.Core
             var classrooms = new HashSet<int>(); var teachers = new HashSet<int>(); var ids = new HashSet<int>();
             foreach (SchoolClass group in s.Classes)
             {
-                if (group == null || !classrooms.Add(group.RoomId) || !s.Rooms.Any(r => r.Id == group.RoomId && r.Kind == RoomKind.Classroom) || string.IsNullOrWhiteSpace(group.Name) || group.Name.Length > 20 || group.Lessons == null || group.Lessons.Count != 6 || group.Lessons.Any(t => !Enum.IsDefined(typeof(Subject), t))) return false;
+                if (group == null || !classrooms.Add(group.RoomId) || !s.Rooms.Any(r => r.Id == group.RoomId && r.Kind == RoomKind.Classroom) || string.IsNullOrWhiteSpace(group.Name) || group.Name.Length > 20 || group.Lessons == null || group.Lessons.Count != 6 || group.Lessons.Any(t => !CurriculumCatalog.Valid(t,s))) return false;
                 if (group.TeacherId != 0 && (!teachers.Add(group.TeacherId) || !s.Staff.Any(p => p.Id == group.TeacherId && p.Role == StaffRole.Teacher))) return false;
             }
             foreach (Pupil p in s.Pupils)
             {
-                if (p == null || p.Id < 1 || !ids.Add(p.Id) || string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 64 || p.Grade < 1 || p.Grade > 6 || p.Ability < 1 || p.Ability > 100 || p.Wellbeing < 0 || p.Wellbeing > 100 || p.Stress < 0 || p.Stress > 100 || p.LastExam < 0 || p.LastExam > 100 || p.LastSupportDay < 0 || p.LastSupportDay > s.Day || !Enum.IsDefined(typeof(Subject), p.Favourite)) return false;
+                if (p == null || p.Id < 1 || !ids.Add(p.Id) || string.IsNullOrWhiteSpace(p.Name) || p.Name.Length > 64 || p.Grade < 1 || p.Grade > (s.SaveVersion>=4?s.GraduationGrade:6) || p.Ability < 1 || p.Ability > 100 || p.Wellbeing < 0 || p.Wellbeing > 100 || p.Stress < 0 || p.Stress > 100 || p.LastExam < 0 || p.LastExam > 100 || p.LastSupportDay < 0 || p.LastSupportDay > s.Day || !CurriculumCatalog.Valid(p.Favourite,s)) return false;
                 if (p.ClassRoomId != 0 && !classrooms.Contains(p.ClassRoomId) || p.DaysEnrolled < 0 || p.DaysAttended < 0 || p.DaysAttended > p.DaysEnrolled || p.Scores == null || p.Scores.Count != 5 || p.Scores.Any(n => n < 0 || n > 100)) return false;
             }
             foreach (Room room in s.Rooms)
-                if (room.UpgradeLevel < 0 || room.UpgradeLevel > 2 || room.Condition < 20 || room.Condition > 100 || room.Kind == RoomKind.Corridor && room.UpgradeLevel != 0 || room.Kind == RoomKind.Classroom && s.Pupils.Count(p => p.ClassRoomId == room.Id) > 24 + room.UpgradeLevel * 4) return false;
+                if (room.UpgradeLevel < 0 || room.UpgradeLevel > 2 || room.Condition < 20 || room.Condition > 100 || CampusGrid.Walkway(room) && room.UpgradeLevel != 0 || room.Kind == RoomKind.Classroom && s.Pupils.Count(p => p.ClassRoomId == room.Id) > 24 + room.UpgradeLevel * 4) return false;
             if (s.Staff.Any(p => p.Energy < 0 || p.Energy > 100 || p.Morale < 0 || p.Morale > 100 || p.TrainingLevel < 0 || p.TrainingLevel > 3)) return false;
             if (s.Reports.Count > 30 || s.Reports.Any(t => t == null || t.Day < 1 || t.Day >= s.Day || t.Year != (t.Day - 1) / 60 + 1 || t.Term != ((t.Day - 1) % 60) / 20 + 1 || t.Day % 20 != 0 || t.Students < 0 || t.Average < 0 || t.Average > 100 || t.Passed < 0 || t.Passed > t.Students || t.Graduated < 0 || t.Repeated < 0 || t.Graduated + t.Repeated > t.Students || t.SubjectAverages == null || t.SubjectAverages.Count != 5 || t.SubjectAverages.Any(n => n < 0 || n > 100))) return false;
             DailyReport d = s.DailyReport;

@@ -15,13 +15,15 @@ namespace KoSch.SchoolTycoon.Core
         public string Name;
         public Subject Favourite;
         public bool Absent;
+        public List<CourseMark> CourseMarks = new List<CourseMark>();
         public List<int> Scores = new List<int> { 45, 45, 45, 45, 45 };
     }
 
     [Serializable]
     public sealed class SchoolClass
     {
-        public int RoomId, TeacherId;
+        public int RoomId, TeacherId, CourseLevel = 1;
+        public List<Subject> Week = new List<Subject>();
         public string Name;
         public List<Subject> Lessons = new List<Subject>();
     }
@@ -30,6 +32,7 @@ namespace KoSch.SchoolTycoon.Core
     public sealed class TermReport
     {
         public int Day, Year, Term, Students, Average, Passed, Graduated, Repeated;
+        public List<CourseResult> Courses = new List<CourseResult>();
         public List<int> SubjectAverages = new List<int>();
     }
 
@@ -37,6 +40,7 @@ namespace KoSch.SchoolTycoon.Core
     public sealed class DailyReport
     {
         public int Day, Attended, Absent, Unstaffed, Joined, Left, ResearchGained;
+        public int CareerFinished = -1, CareerReward;
         public int ResearchFinished = -1, TermFinished, NewAchievements;
         public List<int> StrugglingPupils = new List<int>();
     }

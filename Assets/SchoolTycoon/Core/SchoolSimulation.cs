@@ -45,52 +45,33 @@ namespace KoSch.SchoolTycoon.Core
         private static SchoolEvent Event(string de, string en, string bodyDe, string bodyEn, string[] optionsDe, string[] optionsEn, int[] costs, int[] happiness, int[] reputation, int[] learning)
         { return new SchoolEvent { TitleDe = de, TitleEn = en, BodyDe = bodyDe, BodyEn = bodyEn, OptionsDe = optionsDe, OptionsEn = optionsEn, Costs = costs, Happiness = happiness, Reputation = reputation, Learning = learning }; }
 
-        public Result CanBuild(RoomKind kind, int x, int y, bool rotated)
+        public Result CanBuild(RoomKind kind,int x,int y,bool rotated,int floor=0)
         {
-            if (!Enum.IsDefined(typeof(RoomKind), kind)) return Result.Fail("invalid");
-            if (!CanOperate) return Result.Fail("blocked");
-            var spec = Catalog.Get(kind);
-            if (State.Level < spec.UnlockLevel) return Result.Fail("locked");
-            if (State.Cash < spec.Cost) return Result.Fail("funds");
-            var room = new Room { Kind = kind, X = x, Y = y, Width = rotated ? spec.Height : spec.Width, Height = rotated ? spec.Width : spec.Height };
-            foreach (Cell c in room.Cells())
-            {
-                if (!CampusGrid.IsOwned(State, c)) return Result.Fail("land");
-                if (CampusGrid.At(State, c) != null) return Result.Fail("occupied");
-            }
-            var connected = CampusGrid.Reachable(CampusGrid.Corridors(State));
-            Cell door, inside;
-            if (!CampusGrid.TryDoor(room, connected, out door, out inside)) return Result.Fail("connection");
+            if(!Enum.IsDefined(typeof(RoomKind),kind))return Result.Fail("invalid");if(!CanOperate)return Result.Fail("blocked");
+            if(floor<0||floor>=CampusGrid.MaxFloors)return Result.Fail("floor");if(floor>0&&kind==RoomKind.Garden)return Result.Fail("outdoors");
+            RoomSpec spec=Catalog.Get(kind);if(State.Level<spec.UnlockLevel||floor>0&&State.Level<1)return Result.Fail("locked");
+            if(State.Cash<BuildCost(kind,floor))return Result.Fail("funds");
+            var r=new Room{Kind=kind,X=x,Y=y,Floor=floor,Width=rotated?spec.Height:spec.Width,Height=rotated?spec.Width:spec.Height};
+            foreach(Cell c in r.Cells()){if(!CampusGrid.IsOwned(State,c))return Result.Fail("land");if(CampusGrid.At(State,c)!=null)return Result.Fail("occupied");if(!CampusGrid.Supported(State,c))return Result.Fail("support");}
+            var reachable=CampusGrid.Reachable(State);Cell door,inside;
+            if(kind==RoomKind.Staircase&&floor>0)
+            { if(!CampusGrid.StairLanding(State,r)||!r.Cells().All(c=>reachable.Contains(new Cell(c.X,c.Y,floor-1))))return Result.Fail("stairs"); }
+            else if(!CampusGrid.TryDoor(r,reachable,out door,out inside))return Result.Fail("connection");
             return Result.Ok();
         }
-        public Result Build(RoomKind kind, int x, int y, bool rotated = false)
+        public Result Build(RoomKind kind,int x,int y,bool rotated=false,int floor=0)
         {
-            Result check = CanBuild(kind, x, y, rotated);
-            if (!check.Success) return check;
-            var spec = Catalog.Get(kind);
-            State.Cash -= spec.Cost;
-            State.Rooms.Add(new Room { Id = State.NextId++, Kind = kind, X = x, Y = y, Width = rotated ? spec.Height : spec.Width, Height = rotated ? spec.Width : spec.Height });
-            ReconcileClasses(kind == RoomKind.Classroom, true); CheckGoals(); return Result.Ok();
+            Result check=CanBuild(kind,x,y,rotated,floor);if(!check.Success)return check;RoomSpec spec=Catalog.Get(kind);
+            State.Cash-=BuildCost(kind,floor);State.Rooms.Add(new Room{Id=State.NextId++,Kind=kind,X=x,Y=y,Floor=floor,Width=rotated?spec.Height:spec.Width,Height=rotated?spec.Width:spec.Height});
+            ReconcileClasses(kind==RoomKind.Classroom,true);CheckGoals();return Result.Ok();
         }
         public Result Demolish(int id)
         {
-            if (!CanOperate) return Result.Fail("blocked");
-            Room room = State.Rooms.FirstOrDefault(r => r.Id == id);
-            if (room == null) return Result.Fail("invalid");
-            if (id == 1 || id == 2) return Result.Fail("foundation");
-            if (room.Kind == RoomKind.Corridor)
-            {
-                var reachable = CampusGrid.Reachable(CampusGrid.Corridors(State, room));
-                foreach (Room remaining in State.Rooms.Where(r => r != room))
-                {
-                    Cell door, inside;
-                    if (remaining.Kind == RoomKind.Corridor ? !remaining.Cells().All(reachable.Contains) : !CampusGrid.TryDoor(remaining, reachable, out door, out inside))
-                        return Result.Fail("disconnect");
-                }
-            }
-            State.Rooms.Remove(room); ReconcileClasses(false);
-            State.Cash += Catalog.Get(room.Kind).Cost / 2;
-            return Result.Ok();
+            if(!CanOperate)return Result.Fail("blocked");Room r=State.Rooms.FirstOrDefault(x=>x.Id==id);if(r==null)return Result.Fail("invalid");if(id==1||id==2)return Result.Fail("foundation");
+            if(State.Rooms.Any(b=>b.Floor==r.Floor+1&&b.Cells().Any(c=>r.Contains(new Cell(c.X,c.Y,r.Floor)))))return Result.Fail("supports");
+            if(CampusGrid.Walkway(r))
+            { var reach=CampusGrid.Reachable(State,r);foreach(Room b in State.Rooms.Where(x=>x!=r)){Cell door,inside;if(CampusGrid.Walkway(b)?!b.Cells().All(reach.Contains):!CampusGrid.TryDoor(b,reach,out door,out inside))return Result.Fail("disconnect");} }
+            State.Rooms.Remove(r);ReconcileClasses(false);State.Cash+=BuildCost(r.Kind,r.Floor)/2;return Result.Ok();
         }
 
         public List<Employee> Candidates()
@@ -99,7 +80,7 @@ namespace KoSch.SchoolTycoon.Core
             for (int i = 0; i < 5; i++)
             {
                 int seed = (State.Day * 17 + i * 23) % 100;
-                list.Add(new Employee { Id = i, Name = Catalog.StaffNames[(State.Day + i) % Catalog.StaffNames.Length], Role = i < 3 ? StaffRole.Teacher : i == 3 ? StaffRole.Caretaker : StaffRole.Counselor, Specialty = (Subject)((State.Day + i) % 5), Skill = 55 + seed % 36, Salary = i < 3 ? 70 + seed / 4 : i == 3 ? 48 : 62 });
+                list.Add(new Employee { Id = i, Name = Catalog.StaffNames[(State.Day + i) % Catalog.StaffNames.Length], Role = i < 3 ? StaffRole.Teacher : i == 3 ? StaffRole.Caretaker : StaffRole.Counselor, Specialty = State.Classes.SelectMany(c=>c.Week).Distinct().DefaultIfEmpty(Subject.Mathematics).ElementAt((State.Day+i)%Math.Max(1,State.Classes.SelectMany(c=>c.Week).Distinct().Count())), Skill = 55 + seed % 36, Salary = i < 3 ? 70 + seed / 4 : i == 3 ? 48 : 62 });
             }
             return list;
         }
@@ -130,8 +111,8 @@ namespace KoSch.SchoolTycoon.Core
         public Result SetLesson(int slot, Subject subject)
         {
             if (!CanOperate) return Result.Fail("blocked");
-            if (slot < 0 || slot >= 6 || !Enum.IsDefined(typeof(Subject), subject)) return Result.Fail("invalid");
-            State.Timetable[slot] = subject; foreach (SchoolClass group in State.Classes) group.Lessons[slot] = subject; return Result.Ok();
+            if (slot < 0 || slot >= 6 || !CurriculumCatalog.Valid(subject,State)) return Result.Fail("invalid");
+            State.Timetable[slot] = subject; foreach (SchoolClass group in State.Classes) { group.Lessons[slot] = subject; for(int d=0;d<5;d++) group.Week[d*6+slot]=subject; } EnsureCourseMarks(); return Result.Ok();
         }
         public Result SetPolicy(int admission, int supplies)
         {
@@ -155,8 +136,9 @@ namespace KoSch.SchoolTycoon.Core
                 Funding = ServedStudents * 28,
                 Meals = Math.Min(State.Students, State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12)) * 3,
                 Salaries = State.Staff.Sum(e => e.Salary),
-                Maintenance = State.Rooms.Sum(r => (Catalog.Get(r.Kind).DailyCost * (r.Kind == RoomKind.Corridor ? r.Width * r.Height : 1) + r.UpgradeLevel * 8)) * (Researched(ResearchKind.GreenCampus) ? 80 : 100) / 100,
+                Maintenance = State.Rooms.Sum(RoomRunningCost) * (Researched(ResearchKind.GreenCampus) ? 80 : 100) / 100,
                 Supplies = State.Students * (2 + State.SupplyBudget * 2),
+                Curriculum = TeachingCost(),
                 Activities = State.Clubs.Where(ClubAvailable).Sum(k => AcademyCatalog.Clubs[(int)k].Daily),
                 Support = State.Students * State.SupportPolicy + (State.MealQuality == 2 ? Math.Min(State.Students, State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12)) : 0)
             };
@@ -172,9 +154,9 @@ namespace KoSch.SchoolTycoon.Core
             State.Cleanliness = Clamp(State.Cleanliness - 5 - State.Students / 16 + cleaning, 0, 100);
             int coverage = State.Students == 0 ? 100 : ServedStudents * 100 / State.Students;
             int quality = Teachers == 0 ? 20 : (int)State.Staff.Where(e => e.Role == StaffRole.Teacher).Average(e => EffectiveSkill(e));
-            var lessons = State.Classes.SelectMany(c => c.Lessons).ToList();
-            int diverse = lessons.Distinct().Count();
-            int specialty = State.Classes.Count == 0 ? 0 : (int)State.Classes.Average(c => c.Lessons.Count(sub => ClassTeacher(c) != null && ClassTeacher(c).Specialty == sub));
+            var lessons = State.Classes.SelectMany(c => c.Week).ToList();
+            int diverse = Math.Min(5,lessons.Select(sub=>CurriculumCatalog.Get(sub,State).Group).Distinct().Count());
+            int specialty = State.Classes.Count == 0 ? 0 : (int)State.Classes.Average(c => Today(c).Count(sub => Expertise(ClassTeacher(c),sub)));
             int facilities = Count(RoomKind.Library) * 5 + (lessons.Contains(Subject.Science) ? Count(RoomKind.ScienceLab) * 8 : 0) + (lessons.Contains(Subject.Arts) ? Count(RoomKind.ArtRoom) * 6 : 0) + (lessons.Contains(Subject.Sports) ? Count(RoomKind.Gym) * 5 : 0);
             int targetLearning = Clamp(quality / 2 + coverage / 3 + diverse * 2 + specialty + facilities + State.SupplyBudget * 3 + (Count(RoomKind.Staffroom) > 0 ? 4 : 0), 0, 100);
             State.Learning = Clamp((State.Learning * 2 + targetLearning) / 3, 0, 100);
@@ -182,6 +164,8 @@ namespace KoSch.SchoolTycoon.Core
             State.Happiness = Clamp((State.Happiness * 2 + Clamp(targetHappy, 0, 100)) / 3, 0, 100);
             State.Reputation = Clamp(State.Reputation + (State.Learning >= 65 && State.Happiness >= 60 ? 2 : State.Happiness < 40 ? -2 : 0), 0, 100);
             int graduated = RunAcademyDay();
+            if(State.Pupils.Count>0) State.Learning=(State.Learning*2+(int)State.Pupils.Average(PupilAverage))/3;
+            RunCareer();
             int available = Math.Max(0, Capacity - State.Students);
             int applicants = State.Reputation / 15 + (State.Happiness >= 65 ? 2 : 0) + State.EnrollmentPolicy;
             ledger.Joined = State.Happiness >= 45 ? Math.Min(available, applicants) : 0;
@@ -190,7 +174,7 @@ namespace KoSch.SchoolTycoon.Core
             ledger.Left = left + graduated; State.DailyReport.Joined = ledger.Joined; State.DailyReport.Left = ledger.Left;
             State.LastLedger = ledger; State.History.Add(ledger);
             if (State.History.Count > 60) State.History.RemoveAt(0);
-            State.Day++; State.ClockMinute = 480; PrepareAttendance();
+            State.Day++; if(State.ActiveContract>=0 && State.ContractYear!=SchoolYear) { State.ActiveContract=-1; State.ContractProgress=0; } State.ClockMinute = 480; PrepareAttendance();
             CheckGoals();
             State.DebtDays = State.Cash < 0 ? State.DebtDays + 1 : 0;
             State.GameOver = State.Cash < -5000 || State.DebtDays >= 5;
@@ -211,6 +195,7 @@ namespace KoSch.SchoolTycoon.Core
                 pupil.Wellbeing = Clamp(pupil.Wellbeing + e.Happiness[option], 0, 100);
                 pupil.Stress = Clamp(pupil.Stress - e.Happiness[option] / 2, 0, 100);
                 for (int subject = 0; subject < 5; subject++) pupil.Scores[subject] = Clamp(pupil.Scores[subject] + e.Learning[option] / 2, 0, 100);
+                foreach(CourseMark mark in pupil.CourseMarks) mark.Score=Clamp(mark.Score+e.Learning[option]/2,0,100);
             }
             State.PendingEvent = -1; PrepareAttendance(); CheckGoals(); return Result.Ok();
         }
@@ -226,7 +211,7 @@ namespace KoSch.SchoolTycoon.Core
             State.Level = Math.Min(3, State.CompletedGoals / 2);
         }
 
-        public static bool ValidateSave(SchoolState s) { return ValidateBase(s, 3) && ValidateAcademy(s); }
+        public static bool ValidateSave(SchoolState s) { return ValidateBase(s, 4) && ValidateAcademy(s) && ValidateCurriculum(s); }
         private static bool ValidateLegacySave(SchoolState s) { return ValidateBase(s, 2) && s.PendingEvent < 3; }
         private static bool ValidateBase(SchoolState s, int version)
         {
@@ -235,7 +220,7 @@ namespace KoSch.SchoolTycoon.Core
             if (s.NextId < 3 || s.NextId > 1000000) return false;
             if (s.CompletedGoals < 0 || s.CompletedGoals > Goals.Length || s.Level != Math.Min(3, s.CompletedGoals / 2) || s.PendingEvent < -1 || s.PendingEvent >= Events.Length || s.EnrollmentPolicy < 0 || s.EnrollmentPolicy > 2 || s.SupplyBudget < 0 || s.SupplyBudget > 2 || s.ClockMinute < 480 || s.ClockMinute >= 1020) return false;
             if (s.Happiness < 0 || s.Happiness > 100 || s.Learning < 0 || s.Learning > 100 || s.Cleanliness < 0 || s.Cleanliness > 100 || s.Reputation < 0 || s.Reputation > 100 || s.DebtDays < 0) return false;
-            if (s.Timetable.Count != 6 || s.Timetable.Any(t => !Enum.IsDefined(typeof(Subject), t)) || s.Rooms.Count > WidthLimit || s.Staff.Count > 200 || s.History.Count > 60) return false;
+            if (s.Timetable.Count != 6 || s.Timetable.Any(t => !CurriculumCatalog.Valid(t,s)) || s.Rooms.Count > WidthLimit || s.Staff.Count > 200 || s.History.Count > 60) return false;
             if (s.HasDirector && (string.IsNullOrWhiteSpace(s.Director.Name) || s.Director.Name.Length > 24)) return false;
             if (!new[] { "Female", "Male", "Diverse" }.Contains(s.Director.Gender) || !new[] { "Brown", "Black", "Blonde", "Red", "Silver" }.Contains(s.Director.Hair)) return false;
             if (s.History.Any(l => l == null || l.Day < 1 || l.Students < 0) || s.News.Any(n => n == null)) return false;
@@ -243,20 +228,22 @@ namespace KoSch.SchoolTycoon.Core
             foreach (Room r in s.Rooms)
             {
                 if (r == null || r.Id < 1 || !ids.Add(r.Id) || !Enum.IsDefined(typeof(RoomKind), r.Kind)) return false;
+                if(r.Floor<0||r.Floor>=CampusGrid.MaxFloors||version<4&&(r.Floor!=0||(int)r.Kind>9))return false;
                 if (r.Id == 1)
-                { if (r.Kind != RoomKind.Corridor || r.X != 12 || r.Y != 8 || r.Width != 6 || r.Height != 2) return false; }
+                { if (r.Kind != RoomKind.Corridor || r.X != 12 || r.Y != 8 || r.Width != 6 || r.Height != 2 || r.Floor!=0) return false; }
                 else
                 {
                     RoomSpec spec = Catalog.Get(r.Kind);
                     if (!((r.Width == spec.Width && r.Height == spec.Height) || (r.Width == spec.Height && r.Height == spec.Width))) return false;
                 }
-                foreach (Cell c in r.Cells()) if (!CampusGrid.IsOwned(s, c) || !cells.Add(c)) return false;
+                foreach (Cell c in r.Cells()) if (!CampusGrid.IsOwned(s, c) || !cells.Add(c) || !CampusGrid.Supported(s,c)) return false;
             }
+            if(s.Rooms.Any(r=>r.Kind==RoomKind.Staircase&&!CampusGrid.StairLanding(s,r)||r.Floor>0&&r.Kind==RoomKind.Garden))return false;
             if (!s.Rooms.Any(r => r.Id == 1) || !s.Rooms.Any(r => r.Id == 2 && r.Kind == RoomKind.Classroom)) return false;
             foreach (Employee p in s.Staff)
-                if (p == null || p.Id < 3 || !ids.Add(p.Id) || p.Skill < 1 || p.Skill > 100 || p.Salary < 1 || p.Salary > 500 || string.IsNullOrWhiteSpace(p.Name) || !Enum.IsDefined(typeof(StaffRole), p.Role) || !Enum.IsDefined(typeof(Subject), p.Specialty)) return false;
+                if (p == null || p.Id < 3 || !ids.Add(p.Id) || p.Skill < 1 || p.Skill > 100 || p.Salary < 1 || p.Salary > 500 || string.IsNullOrWhiteSpace(p.Name) || !Enum.IsDefined(typeof(StaffRole), p.Role) || !CurriculumCatalog.Valid(p.Specialty,s)) return false;
             return s.NextId > ids.Max() && s.Rooms.All(r => CampusGrid.IsConnected(s, r));
         }
-        private const int WidthLimit = CampusGrid.Width * CampusGrid.Height;
+        private const int WidthLimit = CampusGrid.Width * CampusGrid.Height * CampusGrid.MaxFloors;
     }
 }

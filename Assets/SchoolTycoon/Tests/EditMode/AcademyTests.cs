@@ -242,7 +242,7 @@ namespace KoSch.SchoolTycoon.Tests
             ReadyAcademy(); SchoolState s = sim.State; s.SaveVersion = 2; s.Day = 37; s.Cash = 12345;
             s.HasDirector = true; s.Director.Name = "Robin"; s.Director.Hair = "Silver"; s.ClockMinute = 987;
             int rooms = s.Rooms.Count, staff = s.Staff.Count; s.Pupils = null; s.Classes = null; s.CompletedResearch = null; s.ClubLicenses = null;
-            Assert.IsTrue(SchoolSimulation.MigrateSave(s)); Assert.AreEqual(3, s.SaveVersion); Assert.AreEqual(12345, s.Cash);
+            Assert.IsTrue(SchoolSimulation.MigrateSave(s)); Assert.AreEqual(4, s.SaveVersion); Assert.AreEqual(12345, s.Cash);
             Assert.AreEqual(rooms, s.Rooms.Count); Assert.AreEqual(staff, s.Staff.Count); Assert.AreEqual("Robin", s.Director.Name); Assert.AreEqual(987, s.ClockMinute);
             Assert.AreEqual(s.Students, s.Pupils.Count); Assert.AreEqual(2, s.Classes.Count);
             Assert.IsTrue(SchoolSimulation.MigrateSave(s)); Assert.AreEqual(12345, s.Cash);
