@@ -24,12 +24,12 @@ namespace KoSch.SchoolTycoon
 
         public void Initialize(SchoolApp owner)
         {
-            app = owner;
+            app = owner;buildOpen=!Application.isMobilePlatform;manageOpen=!Application.isMobilePlatform;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             round = RoundedSprite();
             var canvas = gameObject.AddComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = gameObject.AddComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1600, 900); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight = .5f;
+            scaler.referenceResolution = Application.isMobilePlatform?new Vector2(1280,720):new Vector2(1600,900); scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight; scaler.matchWidthOrHeight = .5f;
             gameObject.AddComponent<GraphicRaycaster>();
             if (EventSystem.current == null)
             {
@@ -37,7 +37,7 @@ namespace KoSch.SchoolTycoon
             }
             safe = Rect("Safe area", transform); Fit(safe);
             Refresh();
-            if (!app.State.HasDirector) ShowDirector(); else ShowPending();
+            if(app.InMainMenu)ShowMainMenu();else if (!app.State.HasDirector) ShowDirector(); else ShowPending();
         }
         private void Update()
         {
@@ -90,15 +90,16 @@ namespace KoSch.SchoolTycoon
         }
         private RectTransform Row(Transform p, float h = 42)
         {
-            RectTransform r = Rect("Row", p); Height(r, h);
+            h=Application.isMobilePlatform?Mathf.Max(64,h):h;RectTransform r = Rect("Row", p); Height(r, h);
             var group = r.gameObject.AddComponent<HorizontalLayoutGroup>(); group.spacing = 7;
             group.childControlWidth = group.childControlHeight = true; group.childForceExpandWidth = true; group.childForceExpandHeight = true;
             return r;
         }
         private Button Button(Transform p, string label, Action click, float h = 44, bool primary = false)
         {
+            h=Application.isMobilePlatform?Mathf.Max(64,h):h;
             RectTransform r = Panel(label, p, primary ? teal : CampusRenderer.ColorHex("E5EEEB")); Height(r, h);
-            var b = r.gameObject.AddComponent<Button>(); b.onClick.AddListener(() => click());
+            var b = r.gameObject.AddComponent<Button>(); b.onClick.AddListener(() => {if(app.Sound!=null)app.Sound.Click();click();});
             ColorBlock colors = b.colors; colors.highlightedColor = new Color(.92f, .99f, .98f); colors.pressedColor = new Color(.72f, .87f, .85f); colors.disabledColor = new Color(.65f, .68f, .67f); b.colors = colors;
             Text t = Text(r, label, 17, h, primary ? Color.white : ink, true);
             Fit(t.rectTransform, 7); t.alignment = TextAnchor.MiddleCenter;
@@ -128,45 +129,56 @@ namespace KoSch.SchoolTycoon
             top.anchorMin = new Vector2(0, 1); top.anchorMax = Vector2.one; top.pivot = new Vector2(.5f, 1); top.anchoredPosition = new Vector2(0, -16); top.sizeDelta = new Vector2(-32, 80);
             var layout = top.gameObject.AddComponent<HorizontalLayoutGroup>(); layout.padding = new RectOffset(22, 20, 10, 10); layout.spacing = 22;
             layout.childControlWidth = layout.childControlHeight = true; layout.childForceExpandWidth = true;
-            Text brand = Text(top, "THE SCHOOL\nSIMULATION 0.4", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
+            Text brand = Text(top, "REKTOR\nDEIN CAMPUS", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
             money = Text(top, "", 21, 58, ink, true); students = Text(top, "", 19, 58); quality = Text(top, "", 18, 58); calendar = Text(top, "", 19, 58);
-            Button(top, app.State.Language == "de" ? "DE / EN" : "EN / DE", () => app.ToggleLanguage(), 50).GetComponent<LayoutElement>().preferredWidth = 100;
+            Button(top,app.T("Menü","Menu"),()=>app.ReturnToMenu(),50).GetComponent<LayoutElement>().preferredWidth = 100;
 
             RectTransform left = Panel("Build palette", screen.transform, paper);
             Place(left, new Vector2(0, 1), new Vector2(0, 1), new Vector2(16, -110), new Vector2(242, 650));
+            if(Application.isMobilePlatform){left.anchorMin=new Vector2(.015f,.15f);left.anchorMax=new Vector2(.44f,.85f);left.offsetMin=left.offsetMax=Vector2.zero;}
             Text title = Text(left, app.T("DEINE SCHULE", "YOUR SCHOOL"), 20, 45, ink, true);
             Place(title.rectTransform, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -10), new Vector2(215, 40));
-            leftContent = Scroll(left, 58, 6); BuildPalette();
+            leftContent = Scroll(left, 58, 6); BuildPalette();left.gameObject.SetActive(buildOpen);
 
             RectTransform right = Panel("Management", screen.transform, paper);
             Place(right, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-16, -110), new Vector2(354, 650));
+            if(Application.isMobilePlatform){right.anchorMin=new Vector2(.52f,.15f);right.anchorMax=new Vector2(.985f,.85f);right.offsetMin=right.offsetMax=Vector2.zero;}
             string[] labels = { app.T("Schule", "School"), app.T("Team", "Staff"), app.T("Klassen", "Classes"), app.T("Budget", "Budget"), app.T("Schüler", "Pupils"), app.T("Forschung", "Research"), app.T("AGs", "Clubs"), app.T("Schuljahr", "Year") };
             for (int row = 0; row < 2; row++)
             {
-                RectTransform tabs = Row(right, 42); Place(tabs, new Vector2(0, 1), new Vector2(0, 1), new Vector2(12, -12 - row * 47), new Vector2(330, 42));
+                float tabHeight=Application.isMobilePlatform?64:42;RectTransform tabs=Row(right,tabHeight);tabs.anchorMin=new Vector2(0,1);tabs.anchorMax=new Vector2(1,1);tabs.pivot=new Vector2(.5f,1);tabs.anchoredPosition=new Vector2(0,-12-row*(tabHeight+5));tabs.sizeDelta=new Vector2(-24,tabHeight);
                 for (int i = row * 4; i < row * 4 + 4; i++) { int n = i; Button(tabs, labels[i], () => { tab = n; Refresh(); }, 42, tab == i); }
             }
-            rightContent = Scroll(right, 111, 6);
+            rightContent = Scroll(right, Application.isMobilePlatform?153:111, 6);
             if (tab == 0) Overview(); else if (tab == 1) Staff(); else if (tab == 2) Classes(); else if (tab == 3) Budget();
-            else if (tab == 4) Pupils(); else if (tab == 5) Research(); else if (tab == 6) Activities(); else AcademicYear();
+            else if (tab == 4) Pupils(); else if (tab == 5) Research(); else if (tab == 6) Activities(); else AcademicYear();right.gameObject.SetActive(manageOpen);
 
             bottom = Panel("Controls", screen.transform, paper);
             bottom.anchorMin = Vector2.zero; bottom.anchorMax = new Vector2(1, 0); bottom.pivot = new Vector2(.5f, 0); bottom.anchoredPosition = new Vector2(0, 16); bottom.sizeDelta = new Vector2(-32, 88);
             var controls = bottom.gameObject.AddComponent<HorizontalLayoutGroup>(); controls.padding = new RectOffset(14, 14, 12, 12); controls.spacing = 7;
             controls.childControlHeight = controls.childControlWidth = true; controls.childForceExpandWidth = true;
-            mode = Text(bottom, "", 16, 58); mode.GetComponent<LayoutElement>().preferredWidth = 235;
-            pauseLabel = Button(bottom, "", () => app.TogglePause(), 58, true).GetComponentInChildren<Text>();
-            Button(bottom, "1× / 3×", () => app.SetSpeed(app.Speed == 1 ? 3 : 1), 58);
-            Button(bottom, app.T("Tag beenden", "End day"), () => { if (!HasModal) app.EndDay(); }, 58);
-            Button(bottom, app.T("Drehen", "Rotate"), () => app.Rotate(), 58);
-            Button(bottom, "−", () => app.CameraRig.Zoom(1.5f), 58);
-            Button(bottom, "+", () => app.CameraRig.Zoom(-1.5f), 58);
-            Button(bottom, app.T("Ansicht", "View"), () => app.CameraRig.Orbit(1), 58);
-            Button(bottom, app.T("Speichern", "Save"), () => app.Save(true), 58);
-            RectTransform help = Panel("World hint", screen.transform, new Color(.97f, .98f, .93f, .94f));
-            Place(help, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(-55, 123), new Vector2(760, 42));
-            Text hint = Text(help, app.T("Klicken: bauen / auswählen   ·   Ziehen: Kamera   ·   Mausrad / Pinch: Zoom", "Click: build / select   ·   Drag: camera   ·   Wheel / pinch: zoom"), 15, 36, muted);
-            Fit(hint.rectTransform, 6); hint.alignment = TextAnchor.MiddleCenter;
+            if(Application.isMobilePlatform)
+            {
+                mode=Text(bottom,"",16,64);mode.GetComponent<LayoutElement>().preferredWidth=100;
+                Button(bottom,app.T("Bauen","Build"),()=>{buildOpen=!buildOpen;manageOpen=false;Refresh();},64,buildOpen);
+                Button(bottom,app.T("Verwalten","Manage"),()=>{manageOpen=!manageOpen;buildOpen=false;Refresh();},64,manageOpen);
+                pauseLabel=Button(bottom,"",()=>app.TogglePause(),64,true).GetComponentInChildren<Text>();
+                Button(bottom,app.T("Tag beenden","End day"),()=>{if(!HasModal)app.EndDay();},64);
+                Button(bottom,app.T("Ansicht","View"),()=>app.CameraRig.Orbit(1),64);
+                Button(bottom,app.T("Speichern","Save"),()=>app.Save(true),64);
+            }
+            else
+            {
+                mode=Text(bottom,"",16,58);mode.GetComponent<LayoutElement>().preferredWidth=200;
+                Button(bottom,app.T("Bauen","Build"),()=>{buildOpen=!buildOpen;Refresh();},58,buildOpen);
+                Button(bottom,app.T("Verwalten","Manage"),()=>{manageOpen=!manageOpen;Refresh();},58,manageOpen);
+                pauseLabel=Button(bottom,"",()=>app.TogglePause(),58,true).GetComponentInChildren<Text>();
+                Button(bottom,"1× / 3×",()=>app.SetSpeed(app.Speed==1?3:1),58);
+                Button(bottom,app.T("Tag beenden","End day"),()=>{if(!HasModal)app.EndDay();},58);
+                Button(bottom,app.T("Drehen","Rotate"),()=>app.Rotate(),58);
+                Button(bottom,"−",()=>app.CameraRig.Zoom(1.5f),58);Button(bottom,"+",()=>app.CameraRig.Zoom(-1.5f),58);
+                Button(bottom,app.T("Ansicht","View"),()=>app.CameraRig.Orbit(1),58);Button(bottom,app.T("Speichern","Save"),()=>app.Save(true),58);
+            }
             RefreshStats();
             if (modal != null) modal.SetAsLastSibling();
             if (toastObject != null) toastObject.transform.SetAsLastSibling();
@@ -175,7 +187,7 @@ namespace KoSch.SchoolTycoon
         {
             if (money == null) return;
             SchoolState s = app.State; SchoolSimulation sim = app.Simulation;
-            money.text = s.Cash.ToString("N0") + " €\n" + app.T("Kassenbestand", "School funds");
+            money.text = (sim.Sandbox?"∞":s.Cash.ToString("N0")) + " €\n" + app.T("Kassenbestand", "School funds");
             students.text = s.Students + " / " + sim.Capacity + "\n" + app.T("Schüler / betreute Plätze", "Students / staffed seats");
             quality.text = app.T("Lernen ", "Learning ") + s.Learning + "%  ·  " + app.T("Freude ", "Joy ") + s.Happiness + "%\n" + app.T("Ansehen ", "Reputation ") + s.Reputation + "%";
             calendar.text = app.T("Jahr ", "Year ") + app.Simulation.SchoolYear + " · " + app.T("Tag ", "Day ") + app.Simulation.YearDay + "  ·  " + (s.ClockMinute / 60).ToString("00") + ":" + (s.ClockMinute % 60).ToString("00") + "\n" + (app.Paused ? app.T("Planungspause", "Planning paused") : app.Speed + "×");
@@ -187,23 +199,26 @@ namespace KoSch.SchoolTycoon
             RectTransform floors=Row(leftContent,48);Button(floors,"−",()=>app.SetFloor(app.ViewFloor-1));Button(floors,app.ViewFloor==0?"EG":"OG "+app.ViewFloor,()=>app.SetFloor(0));Button(floors,"+",()=>app.SetFloor(app.ViewFloor+1));
             Button(leftContent,app.T("Raumnamen zeigen/verbergen","Show/hide room names"),()=>app.ToggleLabels(),52);
             Button(leftContent, app.T("Erkunden / Auswählen", "Explore / select"), () => app.ChooseBuild(null), 46, !app.BuildKind.HasValue && !app.Demolition);
+            Button(leftContent,app.T("Bauplan drehen","Rotate footprint"),()=>app.Rotate(),64);
             Text(leftContent, app.T("RÄUME BAUEN", "BUILD ROOMS"), 15, 30, muted, true);
             foreach (RoomSpec spec in Catalog.Rooms)
             {
-                RoomKind kind = spec.Kind; bool locked = app.State.Level < spec.UnlockLevel;
+                RoomKind kind = spec.Kind; bool locked = !app.Simulation.RoomUnlocked(kind,app.ViewFloor);
                 string name = app.RoomName(kind) + (locked ? app.T(" · gesperrt", " · locked") : "");
                 Button b = Button(leftContent, name + "\n" + app.Simulation.BuildCost(kind,app.ViewFloor) + " €  ·  " + spec.Width + "×" + spec.Height, () => app.ChooseBuild(kind), 65, app.BuildKind == kind);
                 b.interactable = !locked && app.Simulation.CanOperate;
+                if(locked)Text(leftContent,app.Simulation.RoomRequirement(kind,app.ViewFloor),14,62,muted);
             }
             Button(leftContent, app.T("Rückbau · 50 % Erstattung", "Demolish · 50% refund"), () => app.ChooseBuild(null, true), 52, app.Demolition);
             Text(leftContent, app.T("Räume brauchen einen Fluranschluss. Jeder Flur muss zum Eingang führen.", "Rooms need corridor access. Every corridor must lead to the entrance."), 15, 70, muted);
         }
-        public void SelectOverview() { tab = 0; Refresh(); }
+        public void SelectOverview() { manageOpen=true;if(Application.isMobilePlatform)buildOpen=false;tab = 0; Refresh(); }
         private void Overview()
         {
             var s = app.State; var sim = app.Simulation;
             CardText(rightContent, s.HasDirector ? app.T("Leitung: ", "Director: ") + s.Director.Name : app.T("Willkommen auf dem Campus", "Welcome to the campus"),
                 sim.Count(RoomKind.Classroom) + app.T(" Klassenräume · ", " classrooms · ") + sim.Teachers + app.T(" Lehrkräfte\n", " teachers\n") + app.T("Sauberkeit ", "Cleanliness ") + s.Cleanliness + "%");
+            StoryGuide();
             if (sim.Capacity < s.Students) Text(rightContent, app.T("Es fehlen betreute Unterrichtsplätze. Stelle eine Lehrkraft ein!", "Staffed seats are missing. Hire a teacher!"), 17, 66, CampusRenderer.ColorHex("B7674F"), true);
             if (s.CompletedGoals < SchoolSimulation.Goals.Length)
             {
@@ -227,7 +242,8 @@ namespace KoSch.SchoolTycoon
             land.interactable = s.CampusLevel == 0 && sim.CanOperate && s.Level >= 1;
             Button(rightContent, app.T("Tagesbericht öffnen", "Open daily report"), () => ShowDayReport(), 46);
             Button(rightContent, app.T("Kamera zurücksetzen", "Reset camera"), () => app.CameraRig.Home(), 45);
-            Button(rightContent, app.T("Neue Schule beginnen", "Start a new school"), () => Confirm(app.T("Neue Schule?", "New school?"), app.T("Der aktuelle Spielstand wird durch eine neue Schule ersetzt.", "The current save will be replaced by a new school."), () => app.NewSchool()), 45);
+            Button(rightContent,app.T("Einstellungen","Settings"),()=>ShowSettings(false),52);
+            Button(rightContent,app.T("Hauptmenü & Spielstände","Main menu and saves"),()=>app.ReturnToMenu(),52);
             foreach (string news in s.News.Take(3))
             {
                 int n; if (news.StartsWith("goal:") && int.TryParse(news.Substring(5), out n) && n < SchoolSimulation.Goals.Length)
@@ -252,7 +268,7 @@ namespace KoSch.SchoolTycoon
             {
                 int id = candidate.Id;
                 CardText(rightContent, candidate.Name, app.RoleName(candidate.Role) + " · " + candidate.Salary + app.T(" €/Tag\n", " €/day\n") + (candidate.Role == StaffRole.Teacher ? app.SubjectName(candidate.Specialty) + " · " + candidate.Skill + "%" : app.T("Für eine lebendige Schule", "For a thriving school")), 60);
-                Button hire = Button(rightContent, app.T("Einstellen · ", "Hire · ") + (candidate.Role == StaffRole.Teacher ? 700 : 400) + " €", () => app.Act(app.Simulation.Hire(id)), 43, true);
+                Button hire = Button(rightContent, app.T("Einstellen · ", "Hire · ") + app.Simulation.Price(candidate.Role == StaffRole.Teacher ? 700 : 400) + " €", () => app.Act(app.Simulation.Hire(id)), 43, true);
                 hire.interactable = app.Simulation.CanOperate && !app.State.Staff.Any(e => e.Name == candidate.Name);
             }
         }
@@ -285,12 +301,12 @@ namespace KoSch.SchoolTycoon
         {
             CloseModal();
             modal = Panel("Modal blocker", safe, new Color(.1f, .24f, .3f, .86f)); Fit(modal);
-            modal.offsetMax = new Vector2(0, -100);
+            modal.offsetMax = new Vector2(0, app.InMainMenu?0:-100);
             RectTransform card = Panel("Modal card", modal, paper);
-            Place(card, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(670, 600));
+            Place(card, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, Application.isMobilePlatform?new Vector2(750,500):new Vector2(670,660));
             modalBody = Scroll(card, 0, 0);
             WelcomeArt(modalBody);
-            Text(modalBody, "THE SCHOOL SIMULATION", 17, 38, teal, true);
+            Text(modalBody, "REKTOR", 17, 38, teal, true);
             Text(modalBody, title, 30, 64, ink, true);
             Text(modalBody, body, 20, 112, muted);
         }
@@ -376,14 +392,14 @@ namespace KoSch.SchoolTycoon
             for (int i = 0; i < 3; i++)
             {
                 int choice = i;
-                Button b = Button(modalBody, app.State.Language == "de" ? e.OptionsDe[i] : e.OptionsEn[i], () =>
+                Button b = Button(modalBody, (app.State.Language == "de" ? e.OptionsDe[i] : e.OptionsEn[i]).Split('·')[0]+" · "+app.Simulation.Price(e.Costs[i])+" €", () =>
                 {
                     Result r = app.Simulation.ChooseEvent(choice);
                     if (r.Success) { CloseModal(); app.Act(r, false); }
                     else Notify(app.Error(r.Code));
                 }, 62, true);
                 Text(modalBody, app.T("Freude ", "Joy ") + Signed(e.Happiness[i]) + " · " + app.T("Ansehen ", "Reputation ") + Signed(e.Reputation[i]) + " · " + app.T("Lernen ", "Learning ") + Signed(e.Learning[i]), 16, 32, muted);
-                b.interactable = e.Costs[i] == 0 || app.State.Cash >= e.Costs[i];
+                b.interactable = app.Simulation.CanAfford(app.Simulation.Price(e.Costs[i]));
             }
         }
         public void Notify(string message)

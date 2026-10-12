@@ -3,7 +3,7 @@
 from pathlib import Path
 import subprocess,os
 root=Path(__file__).resolve().parents[1]; sdk=root/'.toolchain/dotnet';unity=Path(os.environ.get('UNITY_EDITOR_DATA',str(root/'.toolchain/unity/Editor/Data')));out=root/'.toolchain/unity-api';out.mkdir(exist_ok=True)
-refs=list((unity/'MonoBleedingEdge/lib/mono/4.8-api').glob('*.dll'))+list((unity/'MonoBleedingEdge/lib/mono/4.8-api/Facades').glob('*.dll'))+list((unity/'Managed/UnityEngine').glob('*.dll'))
+refs=list((unity/'NetStandard/ref/2.1.0').glob('*.dll'))+list((unity/'NetStandard/compat/2.1.0/shims/netfx').glob('*.dll'))+list((unity/'Managed/UnityEngine').glob('*.dll'))
 
 ui=list(unity.rglob('UnityEngine.UI.dll'))
 def compile(name,sources,extra=(),defines=''):

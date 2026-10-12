@@ -27,7 +27,7 @@ namespace KoSch.SchoolTycoon
             ClearGhost();if(buildings!=null){buildings.gameObject.SetActive(false);Destroy(buildings.gameObject);}if(people!=null){people.gameObject.SetActive(false);Destroy(people.gameObject);}
             buildings=Group("School rooms",transform);people=Group("School community",transform);rooms.Clear();agents.Clear();
             foreach(Room room in app.State.Rooms)RoomVisual(room);
-            foreach(Pupil p in app.State.Pupils.Where(p=>!p.Absent).Take(64))Person(p.Id,false,null,p);
+            foreach(Pupil p in app.State.Pupils.Where(p=>!p.Absent).Take(app.Settings==null?64:app.Settings.Graphics==0?24:app.Settings.Graphics==1?40:64))Person(p.Id,false,null,p);
             foreach(Employee e in app.State.Staff.Take(24))Person(e.Id+100,true,e,null);
             if(app.State.HasDirector)Person(201,true,new Employee{Name=app.State.Director.Name,Role=StaffRole.Counselor},null,true);
             SetViewFloor();
@@ -89,15 +89,15 @@ namespace KoSch.SchoolTycoon
         }
         private void Update()
         {
-            if(app.Paused||app.UI==null||app.UI.HasModal||!app.State.HasDirector||!app.Simulation.CanOperate)return;float dt=Time.deltaTime*app.Speed;
+            if(app.InMainMenu||app.Paused||app.UI==null||app.UI.HasModal||!app.State.HasDirector||!app.Simulation.CanOperate)return;float dt=Time.deltaTime*app.Speed;
             if(waypoint<points.Count)
             {
                 Vector3 target=points[waypoint],delta=target-transform.localPosition;float step=dt*(adult?1.2f:1.45f);
                 if(delta.magnitude<step){transform.localPosition=target;waypoint++;}else{transform.localPosition+=delta.normalized*step;Vector3 dir=delta;dir.y=0;if(dir.sqrMagnitude>.001f)transform.localRotation=Quaternion.Slerp(transform.localRotation,Quaternion.LookRotation(-dir),dt*9);}
-                gait+=dt*11;body.localPosition=new Vector3(0,Mathf.Abs(Mathf.Sin(gait))*.026f,0);
-                for(int i=0;i<4;i++)bones[i].localRotation=Quaternion.Euler(Mathf.Sin(gait+(i%2)*Mathf.PI)*(i<2?18:24),0,0);UpdateVisibility();return;
+                gait+=dt*11;body.localPosition=new Vector3(0,app.Settings.ReducedMotion?0:Mathf.Abs(Mathf.Sin(gait))*.026f,0);
+                for(int i=0;i<4;i++)bones[i].localRotation=Quaternion.Euler((app.Settings.ReducedMotion?0:Mathf.Sin(gait+(i%2)*Mathf.PI)*(i<2?18:24)),0,0);UpdateVisibility();return;
             }
-            body.localPosition=new Vector3(0,Mathf.Sin(Time.time*2+id)*.005f,0);foreach(Transform bone in bones)bone.localRotation=Quaternion.identity;
+            body.localPosition=new Vector3(0,app.Settings.ReducedMotion?0:Mathf.Sin(Time.time*2+id)*.005f,0);foreach(Transform bone in bones)bone.localRotation=Quaternion.identity;
             wait-=dt;if(lastPhase==-1&&wait>0)return;int phase=(app.State.ClockMinute-480)/60;if(phase==lastPhase)return;lastPhase=phase;
             Room chosen=app.Simulation.Destination(pupil,employee,app.State.ClockMinute,id);if(chosen==null)return;Cell door,inside;
             if(!CampusGrid.TryDoor(chosen,CampusGrid.Reachable(app.State),out door,out inside))return;var path=CampusGrid.Path(app.State,corridor,door);if(path.Count==0)return;

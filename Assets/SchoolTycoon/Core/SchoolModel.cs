@@ -62,7 +62,8 @@ namespace KoSch.SchoolTycoon.Core
     public sealed class Room
     {
         public int Id, X, Y, Width, Height, Floor;
-        public int UpgradeLevel, Condition = 100;
+        public int UpgradeLevel, Condition = 100, FurnishingVersion;
+        public List<RoomItem> Items = new List<RoomItem>();
         public RoomKind Kind;
         public bool Contains(Cell c) { return c.Floor == Floor && c.X >= X && c.Y >= Y && c.X < X + Width && c.Y < Y + Height; }
         public IEnumerable<Cell> Cells()
@@ -98,12 +99,12 @@ namespace KoSch.SchoolTycoon.Core
     [Serializable]
     public sealed class SchoolState
     {
-        public int SaveVersion = 4, Day = 1, Cash = 16000, Students = 18, Reputation = 30;
+        public int SaveVersion = 5, Day = 1, Cash = 16000, Students = 18, Reputation = 30;
         public int Happiness = 65, Learning = 50, Cleanliness = 90, Level, CampusLevel, NextId = 3;
         public int CompletedGoals, PendingEvent = -1, EnrollmentPolicy = 1, SupplyBudget = 1;
         public int DebtDays, ClockMinute = 480;
         public bool HasDirector, GameOver;
-        public string Language = "de";
+        public string Language = "de", SchoolName = "Mein Campus";
         public Avatar Director = new Avatar();
         public List<Room> Rooms = new List<Room>();
         public List<Employee> Staff = new List<Employee>();
@@ -120,6 +121,9 @@ namespace KoSch.SchoolTycoon.Core
         public List<ClubKind> ClubLicenses = new List<ClubKind>();
         public List<TermReport> Reports = new List<TermReport>();
         public DailyReport DailyReport = new DailyReport();
+        public int RulesVersion, StoryChapter, ConsecutivePositive, LastRescueYear;
+        public Difficulty Difficulty = Difficulty.Standard;
+        public GameMode Mode;
         public CurriculumRegion Region;
         public int GraduationGrade = 6, NextCustomSubject = 1000;
         public List<SubjectSpec> CustomSubjects = new List<SubjectSpec>();

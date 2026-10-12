@@ -20,6 +20,10 @@ namespace KoSch.SchoolTycoon
         public bool Demolition { get; private set; }
         public int ViewFloor;
         public bool WorldLabels = true;
+        public bool InMainMenu = true;
+        public int CurrentSlot;
+        public GameSettings Settings { get; private set; }
+        public CampusAudio Sound { get; private set; }
         public bool Paused = true;
         public int Speed = 1, SelectedRoomId = -1;
         private float minute, uiTick;
@@ -27,23 +31,21 @@ namespace KoSch.SchoolTycoon
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
-            if (FindFirstObjectByType<SchoolApp>() == null) new GameObject("The School Simulation").AddComponent<SchoolApp>();
+            if (FindFirstObjectByType<SchoolApp>() == null) new GameObject("Rektor").AddComponent<SchoolApp>();
         }
         private void Awake()
         {
-            Application.targetFrameRate = 60;
-            string problem;
-            SchoolState state = SchoolSave.Load(out problem) ?? SchoolState.Create();
-            if (!state.HasDirector) state.Language = Application.systemLanguage == SystemLanguage.German ? "de" : "en";
-            Simulation = new SchoolSimulation(state); minute = state.ClockMinute;
-            Campus = new GameObject("Campus").AddComponent<CampusRenderer>(); Campus.Initialize(this);
-            CameraRig = new GameObject("Campus Camera").AddComponent<CampusCamera>(); CameraRig.Initialize(this);
-            UI = new GameObject("School interface").AddComponent<SchoolUI>(); UI.Initialize(this);
-            if (!string.IsNullOrEmpty(problem)) UI.Notify(T("Speicherstand beschädigt. Sicherung oder neue Schule geladen.", "Save damaged. Loaded backup or started a new school."));
+            Settings=GameSettings.Load();string problem;SchoolSave.ImportLegacy(out problem);
+            SchoolState state=SchoolState.Create();state.Language=Settings.Language;Simulation=new SchoolSimulation(state);minute=480;
+            Campus=new GameObject("Campus").AddComponent<CampusRenderer>();Campus.Initialize(this);
+            CameraRig=new GameObject("Campus Camera").AddComponent<CampusCamera>();CameraRig.Initialize(this);
+            Sound=new GameObject("Campus sound").AddComponent<CampusAudio>();Sound.Initialize(this);
+            Settings.Apply(this);UI=new GameObject("Rektor interface").AddComponent<SchoolUI>();UI.Initialize(this);
+            if(!string.IsNullOrEmpty(problem))UI.Notify(T("Ein alter Spielstand konnte nicht importiert werden.","A legacy save could not be imported."));
         }
         private void Update()
         {
-            if (State.HasDirector && !Paused && Simulation.CanOperate && !UI.HasModal)
+            if (!InMainMenu && State.HasDirector && !Paused && Simulation.CanOperate && !UI.HasModal)
             {
                 minute += Time.deltaTime * 6 * Speed;
                 if (minute >= 1020) EndDay();
@@ -84,7 +86,7 @@ namespace KoSch.SchoolTycoon
         }
         public void BuildAt(Cell cell)
         {
-            if (!State.HasDirector || UI.HasModal) return;
+            if (InMainMenu || !State.HasDirector || UI.HasModal) return;
             if (BuildKind.HasValue) Act(Simulation.Build(BuildKind.Value, cell.X, cell.Y, Rotated, cell.Floor));
             else if (Demolition)
             {
@@ -109,23 +111,30 @@ namespace KoSch.SchoolTycoon
             Campus.Rebuild(); UI.Refresh(); Save(false);
             UI.Notify(T("Willkommen! Stelle zuerst eine Lehrkraft ein. Bau- und Personalmenü sind links und rechts.", "Welcome! Hire a teacher first. Building and staff menus are on the left and right."));
         }
-        public void NewSchool()
+        public void StartNew(int slot,Difficulty difficulty,GameMode mode,string schoolName)
         {
-            SchoolState fresh = SchoolState.Create(); fresh.Language = State.Language;
-            Simulation = new SchoolSimulation(fresh); minute = 480; Paused = true;
-            BuildKind = null; Demolition = false; SelectedRoomId = -1;
-            Campus.Rebuild(); UI.Refresh(); UI.ShowDirector();
+            SchoolState fresh=SchoolSimulation.CreateCampaign(difficulty,mode);fresh.Language=Settings.Language;fresh.SchoolName=string.IsNullOrWhiteSpace(schoolName)?"Campus "+slot:schoolName.Trim().Substring(0,Math.Min(64,schoolName.Trim().Length));
+            CurrentSlot=slot;ReplaceState(fresh);UI.ShowDirector();
         }
-        public void ToggleLanguage() { State.Language = State.Language == "de" ? "en" : "de"; UI.Refresh(); Campus.Rebuild(); Save(false); }
-        public void Save(bool notify)
+        public bool LoadSlot(int slot)
         {
-            string error;
-            if (!State.HasDirector) return;
-            if (SchoolSave.Write(State, out error)) { if (notify) UI.Notify(T("Schule gespeichert.", "School saved.")); }
-            else UI.Notify(T("Speichern fehlgeschlagen: ", "Save failed: ") + error);
+            string error;SchoolState state=SchoolSave.Archive.Load(slot,out error);if(state==null){UI.Notify(T("Spielstand konnte nicht geladen werden: ","Could not load save: ")+error);return false;}
+            CurrentSlot=slot;state.Language=Settings.Language;ReplaceState(state);if(!state.HasDirector)UI.ShowDirector();else UI.ShowPending();if(error=="backup")UI.Notify(T("Sicherung wiederhergestellt.","Recovered the backup."));return true;
         }
-        private void OnApplicationPause(bool pause) { if (pause && Simulation != null && UI != null) Save(false); }
-        private void OnApplicationQuit() { if (Simulation != null && UI != null) Save(false); }
+        private void ReplaceState(SchoolState state)
+        {
+            Simulation=new SchoolSimulation(state);minute=state.ClockMinute;Paused=true;InMainMenu=false;ViewFloor=0;BuildKind=null;Demolition=false;SelectedRoomId=-1;Campus.Rebuild();CameraRig.Home();Settings.Apply(this);UI.Dismiss();UI.Refresh();
+        }
+        public void NewSchool(){ReturnToMenu();}
+        public void ReturnToMenu(){Save(false,true);InMainMenu=true;Paused=true;BuildKind=null;Demolition=false;Campus.ClearGhost();UI.ShowMainMenu();}
+        public void ToggleLanguage(){Settings.Language=Settings.Language=="de"?"en":"de";State.Language=Settings.Language;Settings.Save();UI.Refresh();Campus.Rebuild();Save(false);}
+        public void Save(bool notify,bool force=false)
+        {
+            if(CurrentSlot<1||!State.HasDirector||!force&&!notify&&!Settings.Autosave)return;string error;
+            if(SchoolSave.Archive.Write(CurrentSlot,State,out error)){if(notify)UI.Notify(T("Campus gespeichert.","Campus saved."));}else UI.Notify(T("Speichern fehlgeschlagen: ","Save failed: ")+error);
+        }
+        private void OnApplicationPause(bool pause) { if (pause && Simulation != null && UI != null) Save(false,true); }
+        private void OnApplicationQuit() { if (Simulation != null && UI != null) Save(false,true); }
         public string Error(string code)
         {
             switch (code)
@@ -137,6 +146,8 @@ namespace KoSch.SchoolTycoon
                 case "stairs": return T("Treppenhäuser müssen exakt übereinander liegen.","Stairwells must align exactly above each other.");
                 case "lateyear": return T("Starte das Jahresprojekt spätestens an Tag 51.","Start the annual project by day 51.");
                 case "grade": return T("Abschlussjahrgang muss zwischen 6 und 13 liegen und alle Schüler umfassen.","Graduation grade must be 6–13 and include every pupil.");
+                case "decorationlast": return T("Kaufe zuerst die nützliche Ausstattung dieses Raums.","Buy the functional equipment in this room first.");
+                case "prerequisite": return T("Kaufe zuerst die vorherige Ausbaustufe.","Purchase the previous upgrade first.");
                 case "funds": return T("Dafür reicht das Geld noch nicht.", "You don't have enough funds yet.");
                 case "occupied": return T("Hier steht bereits ein Raum.", "This plot is already occupied.");
                 case "connection": return T("Der Raum muss an einen verbundenen Flur grenzen.", "Place the room next to a connected corridor.");
@@ -160,43 +171,13 @@ namespace KoSch.SchoolTycoon
 
     public static class SchoolSave
     {
-        private static string PathName { get { return Path.Combine(Application.persistentDataPath, "school-v4.json"); } }
-        public static bool Write(SchoolState s, out string error)
+        private static SaveArchive archive;
+        public static SaveArchive Archive {get{return archive??(archive=new SaveArchive(Application.persistentDataPath,s=>JsonUtility.ToJson(s,true),json=>JsonUtility.FromJson<SchoolState>(json)));}}
+        public static void ImportLegacy(out string problem)
         {
-            error = null;
-            try
-            {
-                if (!SchoolSimulation.ValidateSave(s)) throw new InvalidDataException("State validation failed");
-                Directory.CreateDirectory(Application.persistentDataPath);
-                string temp = PathName + ".tmp";
-                File.WriteAllText(temp, JsonUtility.ToJson(s, true));
-                if (File.Exists(PathName)) File.Copy(PathName, PathName + ".bak", true);
-                // File.Replace is not supported on every Unity target. Rename within the same directory.
-                if (File.Exists(PathName)) File.Delete(PathName);
-                File.Move(temp, PathName);
-                return true;
-            }
-            catch (Exception e) { error = e.Message; Debug.LogWarning("School save: " + e.Message); return false; }
-        }
-        public static SchoolState Load(out string error)
-        {
-            error = null;
-            string legacy = Path.Combine(Application.persistentDataPath, "school-v2.json");
-            string v3=Path.Combine(Application.persistentDataPath,"school-v3.json");
-            foreach (string path in new[] { PathName, PathName + ".bak", v3, v3+".bak", legacy, legacy + ".bak" })
-            {
-                if (!File.Exists(path)) continue;
-                try
-                {
-                    var info = new FileInfo(path);
-                    if (info.Length > 64 * 1024 * 1024) throw new InvalidDataException("Oversized save");
-                    SchoolState s = JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));
-                    if (SchoolSimulation.MigrateSave(s)) return s;
-                    throw new InvalidDataException("Invalid save");
-                }
-                catch (Exception e) { error = e.Message; Debug.LogWarning("School load: " + e.Message); }
-            }
-            return null;
+            problem=null;if(Archive.HasData(1))return;
+            foreach(string file in new[]{"school-v4.json","school-v4.json.bak","school-v3.json","school-v3.json.bak","school-v2.json","school-v2.json.bak"})
+            {string path=Path.Combine(Application.persistentDataPath,file);if(!File.Exists(path))continue;try{if(new FileInfo(path).Length>SaveArchive.MaxBytes)throw new InvalidDataException("Oversized save");SchoolState s=JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));if(!SchoolSimulation.MigrateSave(s))throw new InvalidDataException("Invalid school");if(s.HasDirector&&Archive.Write(1,s,out problem))return;}catch(Exception e){problem=e.Message;}}
         }
     }
 }

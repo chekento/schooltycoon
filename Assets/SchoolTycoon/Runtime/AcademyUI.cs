@@ -10,7 +10,7 @@ namespace KoSch.SchoolTycoon
     {
         private int pupilPage, pupilFilter;
         private string Signed(int n) { return (n >= 0 ? "+" : "") + n; }
-        private void OpenTab(int target) { CloseModal(); tab = target; Refresh(); }
+        private void OpenTab(int target) { manageOpen=true;if(Application.isMobilePlatform)buildOpen=false;CloseModal(); tab = target; Refresh(); }
         private void Progress(Transform parent, int value, int total)
         {
             RectTransform track = Panel("Progress", parent, CampusRenderer.ColorHex("DCE8E4")); Height(track, 18);
@@ -20,11 +20,14 @@ namespace KoSch.SchoolTycoon
         private void RoomDevelopment(Room room)
         {
             Text(rightContent, app.T("Zustand ", "Condition ") + room.Condition + "% · " + app.T("Ausbau ", "Upgrade ") + room.UpgradeLevel + "/2", 16, 38, muted);
-            if (!CampusGrid.Walkway(room))
+            if(room.FurnishingVersion==1 && !CampusGrid.Walkway(room))
             {
-                Button upgrade = Button(rightContent, app.T("Raum verbessern · ", "Upgrade room · ") + app.Simulation.UpgradeCost(room) + " €", () => app.Act(app.Simulation.UpgradeRoom(room.Id)), 47, true);
-                upgrade.interactable = room.UpgradeLevel < 2 && app.Simulation.CanOperate;
-                Text(rightContent, room.Kind == RoomKind.Classroom ? app.T("Je Stufe +4 Plätze und bessere Lernbedingungen.", "Each level adds 4 seats and better learning conditions.") : app.T("Bessere Ausstattung; Mensa und Sanitärraum versorgen mehr Schüler. +8 €/Tag je Stufe.", "Better equipment; canteens and restrooms serve more pupils. +€8/day per level."), 15, 76, muted);
+                Text(rightContent,app.T("Ausbaustufe ","Room tier ")+app.Simulation.RoomTier(room)+"/5 · "+room.Items.Count+app.T(" Gegenstände"," purchased items"),17,48,teal,true);
+                Button(rightContent,app.T("Ausstattung einzeln kaufen","Buy individual room equipment"),()=>RoomShop(room.Id),58,true);
+            }
+            else if(!CampusGrid.Walkway(room))
+            {
+                Button upgrade=Button(rightContent,app.T("Raum verbessern · ","Upgrade room · ")+app.Simulation.UpgradeCost(room)+" €",()=>app.Act(app.Simulation.UpgradeRoom(room.Id)),52,true);upgrade.interactable=room.UpgradeLevel<2&&app.Simulation.CanOperate;
             }
             Button repair = Button(rightContent, app.T("Instandsetzen · ", "Repair · ") + app.Simulation.RepairCost(room) + " €", () => app.Act(app.Simulation.RepairRoom(room.Id)), 43);
             repair.interactable = room.Condition < 100 && app.Simulation.CanOperate;
@@ -141,16 +144,16 @@ namespace KoSch.SchoolTycoon
             if (s.ActiveResearch >= 0)
             {
                 ResearchSpec active = AcademyCatalog.Research[s.ActiveResearch];
-                Text(rightContent, app.ResearchName(active.Kind), 20, 54, teal, true); Progress(rightContent, s.ResearchProgress, active.Points);
-                Text(rightContent, s.ResearchProgress + "/" + active.Points + app.T(" Forschungspunkte", " research points"), 17, 43, muted);
+                Text(rightContent, app.ResearchName(active.Kind), 20, 54, teal, true); Progress(rightContent, s.ResearchProgress, app.Simulation.ResearchRequired(active.Kind));
+                Text(rightContent, s.ResearchProgress + "/" + app.Simulation.ResearchRequired(active.Kind) + app.T(" Forschungspunkte", " research points"), 17, 43, muted);
             }
             foreach (ResearchSpec spec in AcademyCatalog.Research)
             {
                 ResearchKind kind = spec.Kind; bool done = s.CompletedResearch.Contains(kind);
                 CardText(rightContent, (done ? "✓ " : "") + app.ResearchName(kind), app.T(spec.DetailDe, spec.DetailEn), 77);
-                Text(rightContent, app.T("Schulstufe ", "School level ") + spec.Level + " · " + spec.Points + app.T(" Punkte", " points"), 16, 38, muted);
-                Button b = Button(rightContent, done ? app.T("Abgeschlossen", "Completed") : app.T("Projekt starten · ", "Start project · ") + spec.Cost + " €", () => app.Act(app.Simulation.StartResearch(kind), false), 47, true);
-                b.interactable = !done && s.ActiveResearch < 0 && s.Level >= spec.Level && app.Simulation.Count(RoomKind.Library) > 0 && app.Simulation.CanOperate;
+                Text(rightContent, app.T("Schulstufe ", "School level ") + spec.Level + " · " + app.Simulation.ResearchRequired(kind) + app.T(" Punkte", " points"), 16, 38, muted);
+                Button b = Button(rightContent, done ? app.T("Abgeschlossen", "Completed") : app.T("Projekt starten · ", "Start project · ") + app.Simulation.Price(spec.Cost) + " €", () => app.Act(app.Simulation.StartResearch(kind), false), 47, true);
+                b.interactable = !done && s.ActiveResearch < 0 && (app.Simulation.Sandbox || s.Level >= spec.Level && s.Day>=app.Simulation.ResearchStartDay(kind)) && app.Simulation.Count(RoomKind.Library) > 0 && app.Simulation.CanOperate;
             }
         }
         private void Activities()
@@ -160,7 +163,7 @@ namespace KoSch.SchoolTycoon
             {
                 ClubKind kind = spec.Kind; bool active = app.State.Clubs.Contains(kind), available = app.Simulation.ClubAvailable(kind);
                 CardText(rightContent, app.ClubName(kind), app.RoomName(spec.Room) + " · " + app.SubjectName(spec.Subject) + "\n" + spec.Daily + app.T(" €/Tag", " €/day") + (available ? "" : app.T(" · Raum fehlt", " · room missing")), 70);
-                int setup = app.State.ClubLicenses.Contains(kind) ? 0 : spec.Setup;
+                int setup = app.State.ClubLicenses.Contains(kind) ? 0 : app.Simulation.Price(spec.Setup);
                 Button b = Button(rightContent, active ? app.T("AG pausieren", "Pause club") : app.T("AG starten · ", "Start club · ") + setup + " €", () => app.Act(app.Simulation.SetClub(kind, !active)), 47, active);
                 b.interactable = app.Simulation.CanOperate && (active || available);
             }

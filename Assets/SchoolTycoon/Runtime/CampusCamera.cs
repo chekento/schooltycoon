@@ -29,7 +29,7 @@ namespace KoSch.SchoolTycoon
         { return EventSystem.current != null && (id < 0 ? EventSystem.current.IsPointerOverGameObject() : EventSystem.current.IsPointerOverGameObject(id)); }
         private void Update()
         {
-            if (app.UI == null || app.UI.HasModal) return;
+            if (app.InMainMenu || app.UI == null || app.UI.HasModal) return;
             if (Input.touchCount > 0) { TouchInput(); return; }
             Vector2 p = Input.mousePosition;
             if (Input.GetMouseButtonDown(0))
@@ -51,7 +51,7 @@ namespace KoSch.SchoolTycoon
                 if (Input.GetKeyDown(KeyCode.Q)) Orbit(-1);
                 if (Input.GetKeyDown(KeyCode.E)) Orbit(1);
                 if (Input.GetKeyDown(KeyCode.R)) app.Rotate();
-                if (Input.GetKeyDown(KeyCode.Escape)) app.ChooseBuild(null);
+                if (Input.GetKeyDown(KeyCode.Escape)) {if(app.BuildKind.HasValue||app.Demolition)app.ChooseBuild(null);else app.ReturnToMenu();}
                 if (Input.GetKeyDown(KeyCode.Space)) app.TogglePause();
                 Cell c; if (Ground(p, out c)) app.Campus.ShowGhost(c); else app.Campus.ClearGhost();
             }
@@ -65,7 +65,7 @@ namespace KoSch.SchoolTycoon
                 Touch a = Input.GetTouch(0), b = Input.GetTouch(1);
                 if (OverUI(a.fingerId) || OverUI(b.fingerId)) return;
                 Vector2 pa = a.position - a.deltaPosition, pb = b.position - b.deltaPosition;
-                Zoom(((pa - pb).magnitude - (a.position - b.position).magnitude) * .025f);
+                Zoom(((pa - pb).magnitude - (a.position - b.position).magnitude) * .025f*app.Settings.CameraSensitivity);
                 dragging = true; return;
             }
             Touch t = Input.GetTouch(0);
@@ -77,6 +77,7 @@ namespace KoSch.SchoolTycoon
                 if (dragging) Pan(t.position - previous);
                 previous = t.position;
             }
+            if(t.phase==TouchPhase.Canceled){dragging=true;app.Campus.ClearGhost();return;}
             if (t.phase == TouchPhase.Ended && !dragging) Click(t.position);
             Cell c; if (Ground(t.position, out c)) app.Campus.ShowGhost(c);
         }
@@ -84,7 +85,7 @@ namespace KoSch.SchoolTycoon
         {
             Vector3 right = transform.right; right.y = 0; right.Normalize();
             Vector3 forward = Vector3.Cross(right, Vector3.up);
-            focus -= (right * delta.x + forward * delta.y * 1.45f) * (zoom * 2 / Screen.height);
+            focus -= (right * delta.x + forward * delta.y * 1.45f) * (zoom * 2 / Screen.height)*app.Settings.CameraSensitivity;
             Snap();
         }
         private bool Ground(Vector2 screen, out Cell c)

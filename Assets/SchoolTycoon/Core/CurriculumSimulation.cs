@@ -29,6 +29,7 @@ namespace KoSch.SchoolTycoon.Core
         {
             if(!CanOperate)return Result.Fail("blocked");SchoolClass c=State.Classes.FirstOrDefault(g=>g.RoomId==room);
             if(c==null||day<0||day>4||slot<0||slot>5||!CurriculumCatalog.Valid(sub,State))return Result.Fail("invalid");
+            if(!SubjectUnlocked(sub))return Result.Fail("locked");
             c.Week[day*6+slot]=sub;if(day==0)c.Lessons[slot]=sub;EnsureCourseMarks();return Result.Ok();
         }
         public Result ApplyCurriculum(CurriculumRegion region,int room=0)
@@ -38,7 +39,7 @@ namespace KoSch.SchoolTycoon.Core
             if(room==0){State.Region=region;State.Timetable=CurriculumCatalog.Week(region).Take(6).ToList();}EnsureCourseMarks();return Result.Ok();
         }
         public Result SetCourseLevel(int room,int level)
-        { if(!CanOperate)return Result.Fail("blocked");SchoolClass c=State.Classes.FirstOrDefault(g=>g.RoomId==room);if(c==null||level<1||level>3)return Result.Fail("invalid");c.CourseLevel=level;return Result.Ok(); }
+        { if(!CanOperate)return Result.Fail("blocked");SchoolClass c=State.Classes.FirstOrDefault(g=>g.RoomId==room);if(c==null||level<1||level>3)return Result.Fail("invalid");if(Modern&&!Sandbox&&level>1&&(State.Day<(level==2?60:150)||State.Learning<(level==2?60:65)||level==3&&!Researched(ResearchKind.DigitalLearning)))return Result.Fail("locked");c.CourseLevel=level;return Result.Ok(); }
         public Result SetSchoolPath(int grade)
         { if(!CanOperate)return Result.Fail("blocked");if(grade<6||grade>13||State.Pupils.Any(p=>p.Grade>grade))return Result.Fail("grade");State.GraduationGrade=grade;return Result.Ok(); }
         public Result AddSubject(string de,string en,SubjectGroup group,RoomKind facility,int difficulty)
@@ -47,8 +48,8 @@ namespace KoSch.SchoolTycoon.Core
             if(CurriculumCatalog.All(State).Any(c=>string.Equals(c.NameDe,de.Trim(),StringComparison.OrdinalIgnoreCase)||string.Equals(c.NameEn,en.Trim(),StringComparison.OrdinalIgnoreCase)))return Result.Fail("done");
             State.CustomSubjects.Add(new SubjectSpec((Subject)State.NextCustomSubject++,de.Trim(),en.Trim(),group,facility,difficulty,7,difficulty-1));return Result.Ok();
         }
-        public int BuildCost(RoomKind kind,int floor=0) { return Catalog.Get(kind).Cost*(100+floor*20)/100; }
-        public int RoomRunningCost(Room r) { return (Catalog.Get(r.Kind).DailyCost*(r.Kind==RoomKind.Corridor?r.Width*r.Height:1)+r.UpgradeLevel*8)*(100+r.Floor*10)/100; }
+        public int BuildCost(RoomKind kind,int floor=0) { return Price(Catalog.Get(kind).Cost*(100+floor*20)/100); }
+        public int RoomRunningCost(Room r) { return (Catalog.Get(r.Kind).DailyCost*(r.Kind==RoomKind.Corridor?r.Width*r.Height:1)+r.UpgradeLevel*8+(r.FurnishingVersion==1?r.Items.Sum(i=>RektorCatalog.Get(i).Daily):0))*(100+r.Floor*10)*(Modern?Rules.UpkeepPercent:100)/10000; }
         public int TeachingCost() { return State.Classes.Where(c=>ClassTeacher(c)!=null).Sum(c=>ClassSize(c)*(c.CourseLevel-1+Today(c).Sum(s=>CurriculumCatalog.Get(s,State).Materials))); }
         public int FacilitySeats(Room r) { return (Catalog.Get(r.Kind).Capacity>0 ? Catalog.Get(r.Kind).Capacity:24)+r.UpgradeLevel*4; }
         public Room SpecialistRoom(SchoolClass requested,Subject subject,int slot)
@@ -66,7 +67,7 @@ namespace KoSch.SchoolTycoon.Core
         public int LessonFacilityBonus(SchoolClass c,Subject sub)
         {
             int library=Math.Min(8,State.Rooms.Where(r=>r.Kind==RoomKind.Library).Sum(r=>3+r.UpgradeLevel));
-            int slot=Today(c).IndexOf(sub);Room r=slot<0?null:SpecialistRoom(c,sub,slot);return library+(r==null?0:5+r.UpgradeLevel*2);
+            int slot=Today(c).IndexOf(sub);Room r=slot<0?null:SpecialistRoom(c,sub,slot);return library+(r==null?0:5+r.UpgradeLevel*2+(r.FurnishingVersion==1?RoomLearning(r)/2:0));
         }
         private void ClubLearning(Pupil p)
         {
@@ -85,8 +86,8 @@ namespace KoSch.SchoolTycoon.Core
         public int CareerReward { get { return Math.Min(5000,2000+State.Prestige*150); } }
         public Result StartCareer(int kind)
         {
-            if(!CanOperate)return Result.Fail("blocked");if(State.Level<1)return Result.Fail("locked");if(State.ActiveContract>=0)return Result.Fail("busy");if(State.ContractYear==SchoolYear)return Result.Fail("done");if(YearDay>51)return Result.Fail("lateyear");if(!CareerChoices().Contains(kind))return Result.Fail("invalid");if(State.Cash<CareerCost)return Result.Fail("funds");
-            State.Cash-=CareerCost;State.ActiveContract=kind;State.ContractYear=SchoolYear;State.ContractProgress=0;return Result.Ok();
+            if(!CanOperate)return Result.Fail("blocked");if(!Sandbox&&State.Level<1)return Result.Fail("locked");if(State.ActiveContract>=0)return Result.Fail("busy");if(State.ContractYear==SchoolYear)return Result.Fail("done");if(YearDay>51)return Result.Fail("lateyear");if(!CareerChoices().Contains(kind))return Result.Fail("invalid");if(!CanAfford(CareerCost))return Result.Fail("funds");
+            Spend(CareerCost);State.ActiveContract=kind;State.ContractYear=SchoolYear;State.ContractProgress=0;return Result.Ok();
         }
         public bool CareerCondition(int kind)
         {
@@ -105,7 +106,7 @@ namespace KoSch.SchoolTycoon.Core
             if(++State.ContractProgress<10)return;int reward=CareerReward;
             State.DailyReport.CareerFinished=State.ActiveContract;State.DailyReport.CareerReward=reward;
             State.CareerHistory.Add(new CareerRecord{Day=State.Day,Year=SchoolYear,Kind=State.ActiveContract,Reward=reward});if(State.CareerHistory.Count>60)State.CareerHistory.RemoveAt(0);
-            State.Cash+=reward;State.Prestige++;State.ActiveContract=-1;State.ContractProgress=0;
+            Earn(reward);State.Prestige++;State.ActiveContract=-1;State.ContractProgress=0;
         }
         private static bool ValidateCurriculum(SchoolState s)
         {

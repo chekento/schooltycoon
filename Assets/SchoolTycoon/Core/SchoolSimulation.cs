@@ -49,8 +49,8 @@ namespace KoSch.SchoolTycoon.Core
         {
             if(!Enum.IsDefined(typeof(RoomKind),kind))return Result.Fail("invalid");if(!CanOperate)return Result.Fail("blocked");
             if(floor<0||floor>=CampusGrid.MaxFloors)return Result.Fail("floor");if(floor>0&&kind==RoomKind.Garden)return Result.Fail("outdoors");
-            RoomSpec spec=Catalog.Get(kind);if(State.Level<spec.UnlockLevel||floor>0&&State.Level<1)return Result.Fail("locked");
-            if(State.Cash<BuildCost(kind,floor))return Result.Fail("funds");
+            RoomSpec spec=Catalog.Get(kind);if(!RoomUnlocked(kind,floor))return Result.Fail("locked");
+            if(!CanAfford(BuildCost(kind,floor)))return Result.Fail("funds");
             var r=new Room{Kind=kind,X=x,Y=y,Floor=floor,Width=rotated?spec.Height:spec.Width,Height=rotated?spec.Width:spec.Height};
             foreach(Cell c in r.Cells()){if(!CampusGrid.IsOwned(State,c))return Result.Fail("land");if(CampusGrid.At(State,c)!=null)return Result.Fail("occupied");if(!CampusGrid.Supported(State,c))return Result.Fail("support");}
             var reachable=CampusGrid.Reachable(State);Cell door,inside;
@@ -62,7 +62,7 @@ namespace KoSch.SchoolTycoon.Core
         public Result Build(RoomKind kind,int x,int y,bool rotated=false,int floor=0)
         {
             Result check=CanBuild(kind,x,y,rotated,floor);if(!check.Success)return check;RoomSpec spec=Catalog.Get(kind);
-            State.Cash-=BuildCost(kind,floor);State.Rooms.Add(new Room{Id=State.NextId++,Kind=kind,X=x,Y=y,Floor=floor,Width=rotated?spec.Height:spec.Width,Height=rotated?spec.Width:spec.Height});
+            Spend(BuildCost(kind,floor));State.Rooms.Add(new Room{Id=State.NextId++,Kind=kind,X=x,Y=y,Floor=floor,FurnishingVersion=Modern?1:0,Width=rotated?spec.Height:spec.Width,Height=rotated?spec.Width:spec.Height});
             ReconcileClasses(kind==RoomKind.Classroom,true);CheckGoals();return Result.Ok();
         }
         public Result Demolish(int id)
@@ -71,7 +71,7 @@ namespace KoSch.SchoolTycoon.Core
             if(State.Rooms.Any(b=>b.Floor==r.Floor+1&&b.Cells().Any(c=>r.Contains(new Cell(c.X,c.Y,r.Floor)))))return Result.Fail("supports");
             if(CampusGrid.Walkway(r))
             { var reach=CampusGrid.Reachable(State,r);foreach(Room b in State.Rooms.Where(x=>x!=r)){Cell door,inside;if(CampusGrid.Walkway(b)?!b.Cells().All(reach.Contains):!CampusGrid.TryDoor(b,reach,out door,out inside))return Result.Fail("disconnect");} }
-            State.Rooms.Remove(r);ReconcileClasses(false);State.Cash+=BuildCost(r.Kind,r.Floor)/2;return Result.Ok();
+            State.Rooms.Remove(r);ReconcileClasses(false);Earn(BuildCost(r.Kind,r.Floor)/2);return Result.Ok();
         }
 
         public List<Employee> Candidates()
@@ -90,9 +90,9 @@ namespace KoSch.SchoolTycoon.Core
             if (candidate < 0 || candidate >= 5) return Result.Fail("invalid");
             Employee person = Candidates()[candidate];
             if (State.Staff.Any(e => e.Name == person.Name)) return Result.Fail("hired");
-            int fee = person.Role == StaffRole.Teacher ? 700 : 400;
-            if (State.Cash < fee) return Result.Fail("funds");
-            State.Cash -= fee; person.Id = State.NextId++; State.Staff.Add(person);
+            int fee = Price(person.Role == StaffRole.Teacher ? 700 : 400);
+            if (!CanAfford(fee)) return Result.Fail("funds");
+            Spend(fee); person.Id = State.NextId++; State.Staff.Add(person);
             ReconcileClasses(false);
             if (person.Role == StaffRole.Teacher)
             {
@@ -112,7 +112,9 @@ namespace KoSch.SchoolTycoon.Core
         {
             if (!CanOperate) return Result.Fail("blocked");
             if (slot < 0 || slot >= 6 || !CurriculumCatalog.Valid(subject,State)) return Result.Fail("invalid");
-            State.Timetable[slot] = subject; foreach (SchoolClass group in State.Classes) { group.Lessons[slot] = subject; for(int d=0;d<5;d++) group.Week[d*6+slot]=subject; } EnsureCourseMarks(); return Result.Ok();
+            if(!SubjectUnlocked(subject))return Result.Fail("locked");
+            State.Timetable[slot] = subject; foreach (SchoolClass group in State.Classes) { if(!SubjectUnlocked(subject))return Result.Fail("locked");
+            group.Lessons[slot] = subject; for(int d=0;d<5;d++) group.Week[d*6+slot]=subject; } EnsureCourseMarks(); return Result.Ok();
         }
         public Result SetPolicy(int admission, int supplies)
         {
@@ -124,18 +126,18 @@ namespace KoSch.SchoolTycoon.Core
         {
             if (!CanOperate) return Result.Fail("blocked");
             if (State.CampusLevel > 0) return Result.Fail("owned");
-            if (State.Level < 1) return Result.Fail("locked");
-            if (State.Cash < 9000) return Result.Fail("funds");
-            State.Cash -= 9000; State.CampusLevel = 1; return Result.Ok();
+            if (!Sandbox && (State.Level < 1 || Modern&&State.Day<30)) return Result.Fail("locked");
+            if (!CanAfford(Price(9000))) return Result.Fail("funds");
+            Spend(Price(9000)); State.CampusLevel = 1; return Result.Ok();
         }
 
         public Ledger Forecast()
         {
             return new Ledger {
                 Day = State.Day, Students = State.Students,
-                Funding = ServedStudents * 28,
+                Funding = ServedStudents * (Modern?Rules.Funding:28),
                 Meals = Math.Min(State.Students, State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12)) * 3,
-                Salaries = State.Staff.Sum(e => e.Salary),
+                Salaries = State.Staff.Sum(e => e.Salary)*(Modern?Rules.UpkeepPercent:100)/100,
                 Maintenance = State.Rooms.Sum(RoomRunningCost) * (Researched(ResearchKind.GreenCampus) ? 80 : 100) / 100,
                 Supplies = State.Students * (2 + State.SupplyBudget * 2),
                 Curriculum = TeachingCost(),
@@ -147,10 +149,11 @@ namespace KoSch.SchoolTycoon.Core
         {
             if (!CanOperate) return Result.Fail("blocked");
             Ledger ledger = Forecast();
-            ledger.Net = ledger.Income - ledger.Expenses; State.Cash += ledger.Net;
+            ledger.Net = ledger.Income - ledger.Expenses; Earn(ledger.Net);
+            State.ConsecutivePositive=ledger.Net>=0?State.ConsecutivePositive+1:0;
             int toilet = State.Rooms.Where(r => r.Kind == RoomKind.Toilet).Sum(r => 48 + r.UpgradeLevel * 12);
             int meal = State.Rooms.Where(r => r.Kind == RoomKind.Canteen).Sum(r => 72 + r.UpgradeLevel * 12);
-            int cleaning = State.Staff.Where(e => e.Role == StaffRole.Caretaker).Sum(e => 6 + EffectiveSkill(e) / 10 + e.TrainingLevel);
+            int cleaning = EquipmentCleanBonus + State.Staff.Where(e => e.Role == StaffRole.Caretaker).Sum(e => 6 + EffectiveSkill(e) / 10 + e.TrainingLevel);
             State.Cleanliness = Clamp(State.Cleanliness - 5 - State.Students / 16 + cleaning, 0, 100);
             int coverage = State.Students == 0 ? 100 : ServedStudents * 100 / State.Students;
             int quality = Teachers == 0 ? 20 : (int)State.Staff.Where(e => e.Role == StaffRole.Teacher).Average(e => EffectiveSkill(e));
@@ -158,9 +161,10 @@ namespace KoSch.SchoolTycoon.Core
             int diverse = Math.Min(5,lessons.Select(sub=>CurriculumCatalog.Get(sub,State).Group).Distinct().Count());
             int specialty = State.Classes.Count == 0 ? 0 : (int)State.Classes.Average(c => Today(c).Count(sub => Expertise(ClassTeacher(c),sub)));
             int facilities = Count(RoomKind.Library) * 5 + (lessons.Contains(Subject.Science) ? Count(RoomKind.ScienceLab) * 8 : 0) + (lessons.Contains(Subject.Arts) ? Count(RoomKind.ArtRoom) * 6 : 0) + (lessons.Contains(Subject.Sports) ? Count(RoomKind.Gym) * 5 : 0);
+            if(Modern)facilities=Math.Min(15,facilities);
             int targetLearning = Clamp(quality / 2 + coverage / 3 + diverse * 2 + specialty + facilities + State.SupplyBudget * 3 + (Count(RoomKind.Staffroom) > 0 ? 4 : 0), 0, 100);
             State.Learning = Clamp((State.Learning * 2 + targetLearning) / 3, 0, 100);
-            int targetHappy = 47 + State.Cleanliness / 5 + State.Rooms.Where(r => r.Kind == RoomKind.Garden).Sum(r => 5 + r.UpgradeLevel * 2) + (toilet >= State.Students ? 8 : -18) + (meal >= State.Students ? 8 : -5) + (coverage == 100 ? 8 : -16) + State.Staff.Where(e => e.Role == StaffRole.Counselor).Sum(e => 3 + EffectiveSkill(e) / 20) + ActiveClubCount * 2 + (Researched(ResearchKind.GreenCampus) ? 4 : 0) + (State.MealQuality - 1) * 4;
+            int targetHappy = 47 + EquipmentHappyBonus + State.Cleanliness / 5 + State.Rooms.Where(r => r.Kind == RoomKind.Garden).Sum(r => 5 + r.UpgradeLevel * 2) + (toilet >= State.Students ? 8 : -18) + (meal >= State.Students ? 8 : -5) + (coverage == 100 ? 8 : -16) + State.Staff.Where(e => e.Role == StaffRole.Counselor).Sum(e => 3 + EffectiveSkill(e) / 20) + ActiveClubCount * 2 + (Researched(ResearchKind.GreenCampus) ? 4 : 0) + (State.MealQuality - 1) * 4;
             State.Happiness = Clamp((State.Happiness * 2 + Clamp(targetHappy, 0, 100)) / 3, 0, 100);
             State.Reputation = Clamp(State.Reputation + (State.Learning >= 65 && State.Happiness >= 60 ? 2 : State.Happiness < 40 ? -2 : 0), 0, 100);
             int graduated = RunAcademyDay();
@@ -176,8 +180,8 @@ namespace KoSch.SchoolTycoon.Core
             if (State.History.Count > 60) State.History.RemoveAt(0);
             State.Day++; if(State.ActiveContract>=0 && State.ContractYear!=SchoolYear) { State.ActiveContract=-1; State.ContractProgress=0; } State.ClockMinute = 480; PrepareAttendance();
             CheckGoals();
-            State.DebtDays = State.Cash < 0 ? State.DebtDays + 1 : 0;
-            State.GameOver = State.Cash < -5000 || State.DebtDays >= 5;
+            State.DebtDays = !Sandbox&&State.Cash < 0 ? State.DebtDays + 1 : 0;
+            State.GameOver = !Sandbox&&(State.Cash < -(Modern?Rules.DebtLimit:5000) || State.DebtDays >= (Modern?Rules.DebtGrace:5));
             if (!State.GameOver && State.Day % 4 == 0) State.PendingEvent = (State.Day / 4 - 1) % Events.Length;
             return Result.Ok();
         }
@@ -185,8 +189,8 @@ namespace KoSch.SchoolTycoon.Core
         {
             if (State.PendingEvent < 0 || State.PendingEvent >= Events.Length || option < 0 || option >= 3) return Result.Fail("invalid");
             SchoolEvent e = Events[State.PendingEvent];
-            if (State.Cash < e.Costs[option] && e.Costs[option] > 0) return Result.Fail("funds");
-            State.Cash -= e.Costs[option];
+            if (!CanAfford(Price(e.Costs[option]))) return Result.Fail("funds");
+            Spend(Price(e.Costs[option]));
             State.Happiness = Clamp(State.Happiness + e.Happiness[option], 0, 100);
             State.Reputation = Clamp(State.Reputation + e.Reputation[option], 0, 100);
             State.Learning = Clamp(State.Learning + e.Learning[option], 0, 100);
@@ -204,14 +208,15 @@ namespace KoSch.SchoolTycoon.Core
             while (State.CompletedGoals < Goals.Length && Goals[State.CompletedGoals].IsComplete(State))
             {
                 int index = State.CompletedGoals++;
-                State.Cash += Goals[index].Reward;
+                Earn(Goals[index].Reward);
                 State.News.Insert(0, "goal:" + index);
                 if (State.News.Count > 10) State.News.RemoveAt(State.News.Count - 1);
             }
             State.Level = Math.Min(3, State.CompletedGoals / 2);
+            CheckStory();
         }
 
-        public static bool ValidateSave(SchoolState s) { return ValidateBase(s, 4) && ValidateAcademy(s) && ValidateCurriculum(s); }
+        public static bool ValidateSave(SchoolState s) { try { return ValidateBase(s,5) && ValidateRektor(s) && ValidateAcademy(s) && ValidateCurriculum(s); } catch { return false; } }
         private static bool ValidateLegacySave(SchoolState s) { return ValidateBase(s, 2) && s.PendingEvent < 3; }
         private static bool ValidateBase(SchoolState s, int version)
         {
@@ -220,7 +225,7 @@ namespace KoSch.SchoolTycoon.Core
             if (s.NextId < 3 || s.NextId > 1000000) return false;
             if (s.CompletedGoals < 0 || s.CompletedGoals > Goals.Length || s.Level != Math.Min(3, s.CompletedGoals / 2) || s.PendingEvent < -1 || s.PendingEvent >= Events.Length || s.EnrollmentPolicy < 0 || s.EnrollmentPolicy > 2 || s.SupplyBudget < 0 || s.SupplyBudget > 2 || s.ClockMinute < 480 || s.ClockMinute >= 1020) return false;
             if (s.Happiness < 0 || s.Happiness > 100 || s.Learning < 0 || s.Learning > 100 || s.Cleanliness < 0 || s.Cleanliness > 100 || s.Reputation < 0 || s.Reputation > 100 || s.DebtDays < 0) return false;
-            if (s.Timetable.Count != 6 || s.Timetable.Any(t => !CurriculumCatalog.Valid(t,s)) || s.Rooms.Count > WidthLimit || s.Staff.Count > 200 || s.History.Count > 60) return false;
+            if (s.Timetable.Count != 6 || s.Timetable.Any(t => (!CurriculumCatalog.Valid(t,s)||version<4&&(int)t>4)) || s.Rooms.Count > WidthLimit || s.Staff.Count > 200 || s.History.Count > 60) return false;
             if (s.HasDirector && (string.IsNullOrWhiteSpace(s.Director.Name) || s.Director.Name.Length > 24)) return false;
             if (!new[] { "Female", "Male", "Diverse" }.Contains(s.Director.Gender) || !new[] { "Brown", "Black", "Blonde", "Red", "Silver" }.Contains(s.Director.Hair)) return false;
             if (s.History.Any(l => l == null || l.Day < 1 || l.Students < 0) || s.News.Any(n => n == null)) return false;
