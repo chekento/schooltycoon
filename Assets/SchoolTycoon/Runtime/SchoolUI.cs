@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using KoSch.SchoolTycoon.Core;
+using Avatar = KoSch.SchoolTycoon.Core.Avatar;
 
 namespace KoSch.SchoolTycoon
 {

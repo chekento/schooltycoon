@@ -33,7 +33,7 @@ Neue Zeugnisse, abgeschlossene Forschung und Sonderförderungen öffnen einen Ta
 
 ## Android-APK erstellen
 
-Unity Hub: Android Build Support einschließlich SDK / NDK Tools und OpenJDK installieren. Im Projekt **School Simulation → Build → Android APK** wählen. Unity gibt die APK unter `Builds/Android/TheSchoolSimulation-0.3.0.apk` aus. Diese Quellfassung ist kein veröffentlichter oder auf einem Android-Gerät getesteter Build.
+Unity Hub: Android Build Support einschließlich SDK / NDK Tools und OpenJDK installieren. Im Projekt **School Simulation → Build → Android APK** wählen. Unity gibt die APK unter `Builds/Android/TheSchoolSimulation-0.4.0.apk` aus. Diese Quellfassung ist kein veröffentlichter oder auf einem Android-Gerät getesteter Build.
 
 ## Projekt von GitHub holen
 

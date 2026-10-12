@@ -1,4 +1,4 @@
-# Spielsysteme 0.3.0
+# Spielsysteme 0.4.0
 
 ## Der Spielkreislauf
 

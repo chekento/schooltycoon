@@ -1,4 +1,8 @@
-# 🏫 The School Simulation 0.3
+# The School Simulation · 0.4
+
+Neu: **146 Unterrichtsfächer**, Länder-Wochenpläne, eigene Wahlfächer, **sechs Geschosse mit Treppen**, Jahresprojekte und eine wesentlich detailliertere 3D-Grafik. [Fächer & Türme](docs/CURRICULUM.md) · [Grafik](docs/ART_DIRECTION.md).
+
+# 🏫 The School Simulation 0.4
 
 **Baue eine kleine Schule zu einem lebendigen Campus aus.** Ein eigenständiger Schul-Tycoon in Unity mit isometrischer 3D-Ansicht, freundlicher Cartoon-Grafik und einer deutschen und englischen Oberfläche.
 
@@ -8,7 +12,7 @@
 
 ## Aktueller Stand
 
-Version **0.3.0 – Unity-Prototyp**. Das Repository enthält das vollständige Quellprojekt, eine Startszene, eigene prozedurale Raum- und Figurengrafik, Spiellogik, Tests und Build-Menüs. Es enthält noch **keine im Unity-Editor geprüfte Anwendung und keine fertige APK**. Der Unity-Editor war in der Entwicklungsumgebung nicht installiert; die C#-Simulation wurde separat kompiliert und getestet. Der genaue Prüfstand steht in [VALIDATION.md](docs/VALIDATION.md).
+Version **0.4.0 – Unity-Prototyp**. Das Repository enthält das vollständige Quellprojekt, eine Startszene, eigene prozedurale Raum- und Figurengrafik, Spiellogik, Tests und Build-Menüs. Es enthält noch **keine im Unity-Editor geprüfte Anwendung und keine fertige APK**. Der Unity-Editor war in der Entwicklungsumgebung nicht installiert; die C#-Simulation wurde separat kompiliert und getestet. Der genaue Prüfstand steht in [VALIDATION.md](docs/VALIDATION.md).
 
 ## Spielen
 
@@ -21,7 +25,7 @@ Version **0.3.0 – Unity-Prototyp**. Das Repository enthält das vollständige 
 
 Der Campus beginnt mit einem Flur, einem Klassenraum, **18 Schülern und 16.000 €**. Du startest in der Planungspause. Eine Lehrkraft wird gebraucht, bevor die 24 Unterrichtsplätze betreut sind.
 
-## Gameplay in Version 0.3.0
+## Gameplay in Version 0.4.0
 
 - **Individuelle Schüler:** dauerhafte Profile, fünf Fachwerte, Lieblingsfach, Jahrgang, Wohlbefinden, Stress, Anwesenheit und Prüfungsstand. Förderunterricht, Beratung oder Gespräch: eine Maßnahme je Schüler und Tag.
 - **Feste Klassen:** eigene Namen und Stundenpläne, konkrete Lehrerzuordnung, Schülerwechsel und überprüfte Platzgrenzen. Personalwechsel wirken auf die tatsächlich betroffene Klasse und ihre Bildungsförderung.
@@ -82,7 +86,7 @@ Grafik entsteht zur Laufzeit aus eigenen Formen; kostenpflichtige Assets werden 
 
 ## Builds und GitHub
 
-**School Simulation → Build → Windows / Linux / Android APK / WebGL**. Das passende Build-Modul muss in Unity Hub installiert sein. Für Android werden SDK, NDK, OpenJDK und IL2CPP benötigt. Ausgabe: `Builds/Android/TheSchoolSimulation-0.3.0.apk`.
+**School Simulation → Build → Windows / Linux / Android APK / WebGL**. Das passende Build-Modul muss in Unity Hub installiert sein. Für Android werden SDK, NDK, OpenJDK und IL2CPP benötigt. Ausgabe: `Builds/Android/TheSchoolSimulation-0.4.0.apk`.
 
 `Simulation checks` führt nach Push oder Pull Request die strukturellen Prüfungen und dieselben Domain-Tests mit .NET 8 aus. Der manuelle Workflow `Unity build (licensed runner)` verwendet einen selbst gehosteten, aktivierten Unity-Runner mit dem Label `unity` und der Umgebungsvariable `UNITY_EDITOR`. Er setzt einen solchen Runner voraus und startet keinen unbeaufsichtigten Cloud-Build ohne Editor.
 

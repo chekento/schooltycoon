@@ -1,4 +1,4 @@
-# Unity-Prüfliste für 0.3.0
+# Unity-Prüfliste für 0.4.0
 
 Diese Prüfungen benötigen den Unity-Editor und wurden in der Quellumgebung noch nicht ausgeführt. Die separat ausgeführten Domain-Tests ersetzen diese Bedienungs-, Darstellungs- und Plattformprüfungen nicht.
 
