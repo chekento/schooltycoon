@@ -1,3 +1,11 @@
+# 0.4.0 · Curriculum & campus art
+
+- 146 courses, all 43 AP offerings, DE/England/USA weekly plans, 200 custom electives and independent course marks.
+- Six floors with aligned stairwells, full support validation, vertical paths and height-dependent costs.
+- Annual rotating school visions; specialist-room reservations; advanced course costs; broader graduation paths.
+- Original detailed procedural interiors, rounded furniture, character limbs, gardens, glass, soft light and grading.
+- 74 passing domain tests; actual Unity render/device verification is recorded separately in VALIDATION.
+
 # Changelog
 
 ## 0.3.0 — 2026-10-08

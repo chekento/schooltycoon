@@ -17,6 +17,8 @@ namespace KoSch.SchoolTycoon
         public RoomKind? BuildKind { get; private set; }
         public bool Rotated { get; private set; }
         public bool Demolition { get; private set; }
+        public int ViewFloor;
+        public bool WorldLabels = true;
         public bool Paused = true;
         public int Speed = 1, SelectedRoomId = -1;
         private float minute, uiTick;
@@ -53,10 +55,10 @@ namespace KoSch.SchoolTycoon
         public string RoomName(RoomKind kind) { var s = Catalog.Get(kind); return T(s.NameDe, s.NameEn); }
         public string SubjectName(Subject s)
         {
-            string[] de = { "Mathematik", "Sprachen", "Naturwissenschaft", "Kunst", "Sport" };
-            string[] en = { "Mathematics", "Languages", "Science", "Arts", "Sports" };
-            return T(de[(int)s], en[(int)s]);
+            SubjectSpec spec=CurriculumCatalog.Get(s,State);return spec==null?"?":T(spec.NameDe,spec.NameEn);
         }
+        public void SetFloor(int floor) { ViewFloor=Mathf.Clamp(floor,0,CampusGrid.MaxFloors-1);Campus.ClearGhost();Campus.SetViewFloor();UI.Refresh(); }
+        public void ToggleLabels() { WorldLabels=!WorldLabels;Campus.SetViewFloor();UI.Refresh(); }
         public string RoleName(StaffRole r)
         { return r == StaffRole.Teacher ? T("Lehrkraft", "Teacher") : r == StaffRole.Caretaker ? T("Hausdienst", "Caretaker") : T("Schulberatung", "Counselor"); }
         public string ResearchName(ResearchKind kind) { var spec = AcademyCatalog.Research[(int)kind]; return T(spec.NameDe, spec.NameEn); }
@@ -82,7 +84,7 @@ namespace KoSch.SchoolTycoon
         public void BuildAt(Cell cell)
         {
             if (!State.HasDirector || UI.HasModal) return;
-            if (BuildKind.HasValue) Act(Simulation.Build(BuildKind.Value, cell.X, cell.Y, Rotated));
+            if (BuildKind.HasValue) Act(Simulation.Build(BuildKind.Value, cell.X, cell.Y, Rotated, cell.Floor));
             else if (Demolition)
             {
                 Room room = CampusGrid.At(State, cell);
@@ -127,6 +129,13 @@ namespace KoSch.SchoolTycoon
         {
             switch (code)
             {
+                case "floor": return T("Sechs Geschosse sind möglich.","Up to six floors are supported.");
+                case "outdoors": return T("Gärten benötigen den Erdboden.","Gardens need ground level.");
+                case "support": return T("Alle Felder benötigen einen Raum darunter.","Every tile needs a supporting room below.");
+                case "supports": return T("Dieser Raum trägt ein Obergeschoss.","This room supports an upper floor.");
+                case "stairs": return T("Treppenhäuser müssen exakt übereinander liegen.","Stairwells must align exactly above each other.");
+                case "lateyear": return T("Starte das Jahresprojekt spätestens an Tag 51.","Start the annual project by day 51.");
+                case "grade": return T("Abschlussjahrgang muss zwischen 6 und 13 liegen und alle Schüler umfassen.","Graduation grade must be 6–13 and include every pupil.");
                 case "funds": return T("Dafür reicht das Geld noch nicht.", "You don't have enough funds yet.");
                 case "occupied": return T("Hier steht bereits ein Raum.", "This plot is already occupied.");
                 case "connection": return T("Der Raum muss an einen verbundenen Flur grenzen.", "Place the room next to a connected corridor.");
@@ -150,7 +159,7 @@ namespace KoSch.SchoolTycoon
 
     public static class SchoolSave
     {
-        private static string PathName { get { return Path.Combine(Application.persistentDataPath, "school-v3.json"); } }
+        private static string PathName { get { return Path.Combine(Application.persistentDataPath, "school-v4.json"); } }
         public static bool Write(SchoolState s, out string error)
         {
             error = null;
@@ -172,13 +181,14 @@ namespace KoSch.SchoolTycoon
         {
             error = null;
             string legacy = Path.Combine(Application.persistentDataPath, "school-v2.json");
-            foreach (string path in new[] { PathName, PathName + ".bak", legacy, legacy + ".bak" })
+            string v3=Path.Combine(Application.persistentDataPath,"school-v3.json");
+            foreach (string path in new[] { PathName, PathName + ".bak", v3, v3+".bak", legacy, legacy + ".bak" })
             {
                 if (!File.Exists(path)) continue;
                 try
                 {
                     var info = new FileInfo(path);
-                    if (info.Length > 2 * 1024 * 1024) throw new InvalidDataException("Oversized save");
+                    if (info.Length > 64 * 1024 * 1024) throw new InvalidDataException("Oversized save");
                     SchoolState s = JsonUtility.FromJson<SchoolState>(File.ReadAllText(path));
                     if (SchoolSimulation.MigrateSave(s)) return s;
                     throw new InvalidDataException("Invalid save");

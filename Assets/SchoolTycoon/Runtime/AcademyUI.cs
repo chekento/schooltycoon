@@ -20,7 +20,7 @@ namespace KoSch.SchoolTycoon
         private void RoomDevelopment(Room room)
         {
             Text(rightContent, app.T("Zustand ", "Condition ") + room.Condition + "% · " + app.T("Ausbau ", "Upgrade ") + room.UpgradeLevel + "/2", 16, 38, muted);
-            if (room.Kind != RoomKind.Corridor)
+            if (!CampusGrid.Walkway(room))
             {
                 Button upgrade = Button(rightContent, app.T("Raum verbessern · ", "Upgrade room · ") + app.Simulation.UpgradeCost(room) + " €", () => app.Act(app.Simulation.UpgradeRoom(room.Id)), 47, true);
                 upgrade.interactable = room.UpgradeLevel < 2 && app.Simulation.CanOperate;
@@ -37,16 +37,17 @@ namespace KoSch.SchoolTycoon
                 SchoolClass c = group; Employee teacher = app.Simulation.ClassTeacher(c);
                 Room room = app.State.Rooms.First(r => r.Id == c.RoomId);
                 var pupilsInClass = app.State.Pupils.Where(p => p.ClassRoomId == c.RoomId).ToList();
-                int average = pupilsInClass.Count == 0 ? 0 : (int)pupilsInClass.Average(p => p.Scores.Average());
+                int average = pupilsInClass.Count == 0 ? 0 : (int)pupilsInClass.Average(app.Simulation.PupilAverage);
                 CardText(rightContent, c.Name + " · " + pupilsInClass.Count + "/" + app.Simulation.RoomSeats(room), (teacher == null ? app.T("Keine Lehrkraft", "No teacher") : teacher.Name) + "\n" + app.T("Lernstand ", "Learning progress ") + average + "%", 63);
                 Button(rightContent, app.T("Klasse verwalten", "Manage class"), () => ShowClass(c.RoomId), 45, true);
             }
+            CurriculumOptions(rightContent,0);
             Text(rightContent, app.T("VORLAGE FÜR ALLE KLASSEN", "TEMPLATE FOR ALL CLASSES"), 16, 42, teal, true);
             Text(rightContent, app.T("Änderungen hier übernehmen alle Klassen. Individuelle Pläne findest du bei der jeweiligen Klasse.", "Changes here apply to every class. Individual plans are available in class management."), 15, 80, muted);
             for (int i = 0; i < 6; i++)
             {
                 int slot = i;
-                Button(rightContent, (i < 4 ? 8 + i : 9 + i) + ":00 · " + app.SubjectName(app.State.Timetable[i]) + " ›", () => app.Act(app.Simulation.SetLesson(slot, (Subject)(((int)app.State.Timetable[slot] + 1) % 5)), false), 46);
+                Button(rightContent, (i < 4 ? 8 + i : 9 + i) + ":00 · " + app.SubjectName(app.State.Timetable[i]) + " ›", () => SubjectPicker(0,slot), 46);
             }
         }
         private void ShowClass(int roomId)
@@ -55,15 +56,14 @@ namespace KoSch.SchoolTycoon
             OpenModal(group.Name, app.T("Feste Klassenzuordnung, eigene Fächer und eine verantwortliche Lehrkraft. Um 12 Uhr ist Mittagspause; ab 15 Uhr beginnen AGs.", "Assigned pupils, individual subjects and a responsible teacher. Lunch is at noon; clubs begin at 15:00."));
             Button(modalBody, app.T("Lehrkraft zuordnen", "Assign teacher"), () => ChooseTeacher(roomId), 48, true);
             Button(modalBody, app.T("Klasse umbenennen", "Rename class"), () => RenameClass(roomId), 43);
-            for (int i = 0; i < 6; i++)
-            {
-                int slot = i;
-                Button(modalBody, (i < 4 ? 8 + i : 9 + i) + ":00 · " + app.SubjectName(group.Lessons[i]) + " ›", () =>
-                { app.Act(app.Simulation.SetClassLesson(roomId, slot, (Subject)(((int)group.Lessons[slot] + 1) % 5)), false); ShowClass(roomId); }, 45);
-            }
+            RectTransform days=Row(modalBody,48);for(int d=0;d<5;d++){int day=d;Button(days,DayName(d),()=>{planDay=day;ShowClass(roomId);},48,planDay==d);}
+            Button(modalBody,app.T("Kursstufe ","Course level ")+group.CourseLevel+"/3",()=>{app.Act(app.Simulation.SetCourseLevel(roomId,group.CourseLevel%3+1),false);ShowClass(roomId);},48);
+            Text(modalBody,app.T("Höhere Kursstufen erfordern mehr Material und anspruchsvolleren Unterricht.","Higher course levels need more supplies and stronger teaching."),16,64,muted);
+            for(int i=0;i<6;i++){int slot=i;Button(modalBody,(i<4?8+i:9+i)+":00 · "+app.SubjectName(group.Week[planDay*6+i]),()=>SubjectPicker(roomId,slot),52);}
+            CurriculumOptions(modalBody,roomId);
             Text(modalBody, app.T("SCHÜLER DIESER KLASSE", "PUPILS IN THIS CLASS"), 16, 38, teal, true);
             foreach (Pupil pupil in app.State.Pupils.Where(p => p.ClassRoomId == roomId))
-            { Pupil p = pupil; Button(modalBody, p.Name + " · " + (int)p.Scores.Average() + "%", () => ShowPupil(p.Id), 42); }
+            { Pupil p = pupil; Button(modalBody, p.Name + " · " + app.Simulation.PupilAverage(p) + "%", () => ShowPupil(p.Id), 42); }
             Button(modalBody, app.T("Zurück zum Campus", "Back to campus"), () => CloseModal(), 52);
         }
         private void ChooseTeacher(int roomId)
@@ -92,7 +92,7 @@ namespace KoSch.SchoolTycoon
             CardText(rightContent, app.T("DEINE SCHÜLER", "YOUR PUPILS"), app.T("Noten entstehen aus Unterricht, Lieblingsfach, Ausstattung, Förderung und Anwesenheit. Hoher Stress kann zu Fehlzeiten führen.", "Progress reflects teaching, favourite subjects, facilities, support and attendance. High stress can cause absences."), 122);
             string[] filters = { app.T("Alle Schüler", "All pupils"), app.T("Förderbedarf", "Needs support"), app.T("Heute abwesend", "Absent today") };
             Button(rightContent, filters[pupilFilter] + " ›", () => { pupilFilter = (pupilFilter + 1) % 3; pupilPage = 0; Refresh(); }, 44);
-            var roster = app.State.Pupils.Where(p => pupilFilter == 0 || pupilFilter == 1 && (p.Scores.Min() < 45 || p.Stress > 65 || p.Wellbeing < 40) || pupilFilter == 2 && p.Absent).ToList();
+            var roster = app.State.Pupils.Where(p => pupilFilter == 0 || pupilFilter == 1 && app.Simulation.NeedsSupport(p) || pupilFilter == 2 && p.Absent).ToList();
             int pages = Math.Max(1, (roster.Count + 11) / 12); pupilPage = Math.Min(pupilPage, pages - 1);
             Text(rightContent, roster.Count + app.T(" Schüler · Seite ", " pupils · page ") + (pupilPage + 1) + "/" + pages, 16, 35, muted);
             RectTransform controls = Row(rightContent);
@@ -101,7 +101,7 @@ namespace KoSch.SchoolTycoon
             foreach (Pupil pupil in roster.Skip(pupilPage * 12).Take(12))
             {
                 Pupil p = pupil; SchoolClass group = app.Simulation.PupilClass(p);
-                Button(rightContent, p.Name + "\n" + (group == null ? app.T("Ohne Klasse", "Unassigned") : group.Name) + " · " + (int)p.Scores.Average() + "%" + (p.Absent ? app.T(" · abwesend", " · absent") : ""), () => ShowPupil(p.Id), 65);
+                Button(rightContent, p.Name + "\n" + (group == null ? app.T("Ohne Klasse", "Unassigned") : group.Name) + " · " + app.Simulation.PupilAverage(p) + "%" + (p.Absent ? app.T(" · abwesend", " · absent") : ""), () => ShowPupil(p.Id), 65);
             }
             if (roster.Count == 0) Text(rightContent, app.T("Hier gibt es aktuell keine Schüler.", "There are currently no pupils in this view."), 17, 60, muted);
         }
@@ -111,7 +111,7 @@ namespace KoSch.SchoolTycoon
             SchoolClass group = app.Simulation.PupilClass(p);
             OpenModal(p.Name, app.T("Jahrgang ", "Grade ") + p.Grade + " · " + (group == null ? app.T("Ohne Klasse", "Unassigned") : group.Name) + "\n" + app.T("Lieblingsfach: ", "Favourite subject: ") + app.SubjectName(p.Favourite) + "\n" + app.T("Anwesend: ", "Attended: ") + p.DaysAttended + "/" + p.DaysEnrolled + app.T(" Schultage", " school days"));
             Text(modalBody, app.T("Wohlbefinden ", "Wellbeing ") + p.Wellbeing + "% · " + app.T("Stress ", "Stress ") + p.Stress + "%", 19, 44, teal, true);
-            for (int i = 0; i < 5; i++) { Text(modalBody, app.SubjectName((Subject)i) + " · " + p.Scores[i] + "%", 18, 34); Progress(modalBody, p.Scores[i], 100); }
+            foreach(Subject sub in app.Simulation.PupilCourses(p)){int score=app.Simulation.Score(p,sub);Text(modalBody,app.SubjectName(sub)+" · "+score+"%",18,34);Progress(modalBody,score,100);}
             Text(modalBody, app.T("Letzte Prüfung ", "Last exam ") + p.LastExam + "%", 17, 38, muted);
             string[] actions = { app.T("Förderunterricht · 90 €", "Tutoring · €90"), app.T("Beratung · 60 €", "Counselling · €60"), app.T("Persönliches Gespräch · 0 €", "Personal conversation · €0") };
             string[] details = { app.T("Schwächstes Fach +8, Stress +3.", "Weakest subject +8, stress +3."), app.T("Stress −18, Wohlbefinden +10.", "Stress −18, wellbeing +10."), app.T("Stress −6, Wohlbefinden +3.", "Stress −6, wellbeing +3.") };
@@ -170,6 +170,7 @@ namespace KoSch.SchoolTycoon
             var sim = app.Simulation; var s = app.State;
             CardText(rightContent, app.T("SCHULJAHR ", "SCHOOL YEAR ") + sim.SchoolYear, app.T("Tag ", "Day ") + sim.YearDay + "/60 · " + app.T("Abschnitt ", "Term ") + sim.Term + "/3\n" + app.SeasonName() + " · " + app.WeatherName(), 70);
             Progress(rightContent, sim.YearDay - 1, 60);
+            CareerProjects();
             Text(rightContent, app.T("Prüfungen an Tag 20, 40 und 60. Am Jahresende werden Schüler ab 45 % versetzt. Nach Jahrgang 6 folgen Abschluss und neue Aufnahme.", "Exams are held on days 20, 40 and 60. At year end pupils with at least 45% advance. Grade 6 leads to graduation and fresh admissions."), 16, 138, muted);
             Text(rightContent, s.ExamsHeld + app.T(" Prüfungen · ", " exams · ") + s.Graduates + app.T(" Abschlüsse", " graduates"), 18, 42, teal, true);
             Button(rightContent, app.T("Letzten Tagesbericht lesen", "Read the latest daily report"), () => ShowDayReport(), 48, true);
@@ -188,7 +189,7 @@ namespace KoSch.SchoolTycoon
         private void ShowTermReport(TermReport report)
         {
             OpenModal(app.T("Zeugnis · Jahr ", "Report card · year ") + report.Year + " · " + report.Term, app.T("Durchschnitt ", "Average ") + report.Average + "%\n" + report.Passed + "/" + report.Students + app.T(" bestanden · mindestens 50 %", " passed · at least 50%") + "\n" + report.Graduated + app.T(" Abschlüsse · ", " graduates · ") + report.Repeated + app.T(" Wiederholungen", " repeating pupils"));
-            for (int i = 0; i < 5; i++) { Text(modalBody, app.SubjectName((Subject)i) + " · " + report.SubjectAverages[i] + "%", 20, 40); Progress(modalBody, report.SubjectAverages[i], 100); }
+            if(report.Courses.Count>0)foreach(CourseResult c in report.Courses){Text(modalBody,app.SubjectName(c.Subject)+" · "+c.Average+"%",20,40);Progress(modalBody,c.Average,100);}else for(int i=0;i<5;i++){Text(modalBody,app.SubjectName((Subject)i)+" · "+report.SubjectAverages[i]+"%",20,40);}
             Button(modalBody, app.T("Förderbedarf ansehen", "Review support needs"), () => { pupilFilter = 1; pupilPage = 0; OpenTab(4); }, 51, true);
             Button(modalBody, app.T("Stundenpläne anpassen", "Adjust timetables"), () => OpenTab(2), 51);
             Button(modalBody, app.T("Zurück zum Campus", "Back to campus"), () => CloseModal(), 51);
@@ -200,6 +201,7 @@ namespace KoSch.SchoolTycoon
             Ledger l = app.State.LastLedger;
             OpenModal(app.T("Schultag ", "School day ") + d.Day, app.T("Tagesbilanz ", "Daily balance ") + Signed(l.Net) + " €\n" + d.Attended + app.T(" anwesend · ", " attended · ") + d.Absent + app.T(" abwesend", " absent") + "\n" + d.Joined + app.T(" Aufnahmen · ", " admissions · ") + d.Left + app.T(" Abgänge / Abschlüsse", " departures / graduates"));
             if (d.Unstaffed > 0) Text(modalBody, d.Unstaffed + app.T(" Schüler hatten keine zugeordnete Lehrkraft.", " pupils had no assigned teacher."), 18, 60, CampusRenderer.ColorHex("BA725C"));
+            if(d.CareerFinished>=0)Text(modalBody,"✓ "+app.T(SchoolSimulation.CareerDe[d.CareerFinished],SchoolSimulation.CareerEn[d.CareerFinished])+" · +"+d.CareerReward+" €",20,62,teal,true);
             if (d.ResearchGained > 0) Text(modalBody, "+" + d.ResearchGained + app.T(" Forschungspunkte", " research points"), 18, 40, teal);
             if (d.ResearchFinished >= 0) Text(modalBody, "✓ " + app.ResearchName((ResearchKind)d.ResearchFinished), 20, 62, teal, true);
             if (d.TermFinished > 0)

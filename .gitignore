@@ -28,3 +28,4 @@ tools/bin/
 
 !tools/SchoolDomainTests.csproj
 tools/obj/
+.toolchain/

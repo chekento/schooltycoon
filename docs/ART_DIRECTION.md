@@ -1,0 +1,7 @@
+# Campus art
+
+The playable Unity scene uses original procedural 3D recipes in `CampusDesign.cs`: rounded furniture, real wall openings, specialist equipment, garden beds, warm palettes and expressive characters. `CampusArt.cs` creates shared meshes and materials. CampusSurface, CampusGlass and CampusGrade are retained through Resources for player builds.
+
+The wide welcome illustration at `Assets/SchoolTycoon/Resources/Art/CampusWelcome.png` was created with the built-in imagegen tool. It is menu artwork, not a gameplay screenshot. No real Unity/device screenshot is claimed by this artwork.
+
+Prompt: Use case: stylized-concept. Asset type: original wide welcome illustration for a Unity school tycoon game. Create a breathtaking, welcoming modern school campus in a polished cozy 3D cartoon style: terraced school buildings and a charming classroom tower connected by stairwells, glass windows, warm timber details, cutaway hints of colorful classrooms, science, music and computer rooms, a lush garden, gently curving paths, flower beds, trees, a few friendly students and teachers. Soft golden late-afternoon sun, exquisite rounded architecture, tactile materials, airy mint and ivory with warm coral and indigo accents. Sophisticated playful game art, rich detail with clean readable shapes. Wide landscape composition suitable as a cropped header and welcome backdrop. No text, no letters, no logos, no interface panels, no watermark. This is game welcome artwork, not a claim of a gameplay screenshot.

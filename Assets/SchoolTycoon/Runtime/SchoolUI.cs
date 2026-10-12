@@ -127,7 +127,7 @@ namespace KoSch.SchoolTycoon
             top.anchorMin = new Vector2(0, 1); top.anchorMax = Vector2.one; top.pivot = new Vector2(.5f, 1); top.anchoredPosition = new Vector2(0, -16); top.sizeDelta = new Vector2(-32, 80);
             var layout = top.gameObject.AddComponent<HorizontalLayoutGroup>(); layout.padding = new RectOffset(22, 20, 10, 10); layout.spacing = 22;
             layout.childControlWidth = layout.childControlHeight = true; layout.childForceExpandWidth = true;
-            Text brand = Text(top, "THE SCHOOL\nSIMULATION 0.3", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
+            Text brand = Text(top, "THE SCHOOL\nSIMULATION 0.4", 21, 58, ink, true); brand.GetComponent<LayoutElement>().preferredWidth = 235;
             money = Text(top, "", 21, 58, ink, true); students = Text(top, "", 19, 58); quality = Text(top, "", 18, 58); calendar = Text(top, "", 19, 58);
             Button(top, app.State.Language == "de" ? "DE / EN" : "EN / DE", () => app.ToggleLanguage(), 50).GetComponent<LayoutElement>().preferredWidth = 100;
 
@@ -183,13 +183,15 @@ namespace KoSch.SchoolTycoon
         }
         private void BuildPalette()
         {
+            RectTransform floors=Row(leftContent,48);Button(floors,"−",()=>app.SetFloor(app.ViewFloor-1));Button(floors,app.ViewFloor==0?"EG":"OG "+app.ViewFloor,()=>app.SetFloor(0));Button(floors,"+",()=>app.SetFloor(app.ViewFloor+1));
+            Button(leftContent,app.T("Raumnamen zeigen/verbergen","Show/hide room names"),()=>app.ToggleLabels(),52);
             Button(leftContent, app.T("Erkunden / Auswählen", "Explore / select"), () => app.ChooseBuild(null), 46, !app.BuildKind.HasValue && !app.Demolition);
             Text(leftContent, app.T("RÄUME BAUEN", "BUILD ROOMS"), 15, 30, muted, true);
             foreach (RoomSpec spec in Catalog.Rooms)
             {
                 RoomKind kind = spec.Kind; bool locked = app.State.Level < spec.UnlockLevel;
                 string name = app.RoomName(kind) + (locked ? app.T(" · gesperrt", " · locked") : "");
-                Button b = Button(leftContent, name + "\n" + spec.Cost + " €  ·  " + spec.Width + "×" + spec.Height, () => app.ChooseBuild(kind), 65, app.BuildKind == kind);
+                Button b = Button(leftContent, name + "\n" + app.Simulation.BuildCost(kind,app.ViewFloor) + " €  ·  " + spec.Width + "×" + spec.Height, () => app.ChooseBuild(kind), 65, app.BuildKind == kind);
                 b.interactable = !locked && app.Simulation.CanOperate;
             }
             Button(leftContent, app.T("Rückbau · 50 % Erstattung", "Demolish · 50% refund"), () => app.ChooseBuild(null, true), 52, app.Demolition);
@@ -215,9 +217,9 @@ namespace KoSch.SchoolTycoon
             {
                 RoomSpec spec = Catalog.Get(selected.Kind);
                 CardText(rightContent, app.RoomName(selected.Kind), app.T(spec.DescriptionDe, spec.DescriptionEn), 66);
-                Text(rightContent, selected.Width + "×" + selected.Height + app.T(" Felder · ", " tiles · ") + spec.DailyCost * (selected.Kind == RoomKind.Corridor ? selected.Width * selected.Height : 1) + app.T(" €/Tag", " €/day"), 16, 40);
+                Text(rightContent, selected.Width + "×" + selected.Height + app.T(" Felder · ", " tiles · ") + sim.RoomRunningCost(selected) + app.T(" €/Tag", " €/day"), 16, 40);
                 RoomDevelopment(selected);
-                if (selected.Id > 2) Button(rightContent, app.T("Diesen Raum zurückbauen", "Demolish this room"), () => Confirm(app.T("Raum zurückbauen?", "Demolish room?"), app.T("Erstattung: ", "Refund: ") + spec.Cost / 2 + " €", () => { app.SelectedRoomId = -1; app.Act(sim.Demolish(selected.Id)); }), 45);
+                if (selected.Id > 2) Button(rightContent, app.T("Diesen Raum zurückbauen", "Demolish this room"), () => Confirm(app.T("Raum zurückbauen?", "Demolish room?"), app.T("Erstattung: ", "Refund: ") + sim.BuildCost(selected.Kind,selected.Floor) / 2 + " €", () => { app.SelectedRoomId = -1; app.Act(sim.Demolish(selected.Id)); }), 45);
             }
             CardText(rightContent, app.T("CAMPUS AUSBAUEN", "EXPAND THE CAMPUS"), app.T("Zunächst 20×16 Baufelder. Mit zusätzlichem Land stehen dir 32×24 Felder zur Verfügung.", "Start with 20×16 building tiles. Additional land opens the full 32×24 campus."), 88);
             Button land = Button(rightContent, s.CampusLevel > 0 ? app.T("Gesamter Campus gekauft", "Full campus owned") : app.T("Grundstück kaufen · 9.000 €", "Buy land · €9,000"), () => app.Act(sim.BuyLand()), 50);
@@ -262,6 +264,7 @@ namespace KoSch.SchoolTycoon
             Text(rightContent, app.T("Gehälter   −", "Salaries   −") + f.Salaries + " €", 17, 32);
             Text(rightContent, app.T("Betriebskosten   −", "Maintenance   −") + f.Maintenance + " €", 17, 32);
             Text(rightContent, app.T("Lernmaterial   −", "Learning supplies   −") + f.Supplies + " €", 17, 32);
+            Text(rightContent, app.T("Kursmaterial   −", "Course materials   −") + f.Curriculum + " €", 17, 32);
             Text(rightContent, app.T("Arbeitsgemeinschaften   −", "Clubs   −") + f.Activities + " €", 17, 32);
             Text(rightContent, app.T("Förderung / Essen   −", "Support / meals   −") + f.Support + " €", 17, 32);
             Text(rightContent, app.T("Tagesbilanz   ", "Daily balance   ") + (net >= 0 ? "+" : "") + net + " €", 22, 44, net >= 0 ? teal : CampusRenderer.ColorHex("BA725C"), true);
@@ -285,6 +288,7 @@ namespace KoSch.SchoolTycoon
             RectTransform card = Panel("Modal card", modal, paper);
             Place(card, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(670, 600));
             modalBody = Scroll(card, 0, 0);
+            WelcomeArt(modalBody);
             Text(modalBody, "THE SCHOOL SIMULATION", 17, 38, teal, true);
             Text(modalBody, title, 30, 64, ink, true);
             Text(modalBody, body, 20, 112, muted);

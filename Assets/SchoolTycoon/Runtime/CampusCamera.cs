@@ -17,6 +17,7 @@ namespace KoSch.SchoolTycoon
             app = owner;
             View = gameObject.AddComponent<Camera>(); View.tag = "MainCamera";
             gameObject.AddComponent<AudioListener>();
+            gameObject.AddComponent<CampusPost>();View.allowHDR=true;
             View.orthographic = true; View.nearClipPlane = .1f; View.farClipPlane = 200;
             View.backgroundColor = new Color(.78f, .9f, .95f); View.clearFlags = CameraClearFlags.SolidColor;
             Snap();
@@ -89,15 +90,16 @@ namespace KoSch.SchoolTycoon
         private bool Ground(Vector2 screen, out Cell c)
         {
             Ray ray = View.ScreenPointToRay(screen); float distance;
-            if (new Plane(Vector3.up, Vector3.zero).Raycast(ray, out distance))
-            { Vector3 p = ray.GetPoint(distance); c = new Cell(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.z)); return c.X >= 0 && c.X < CampusGrid.Width && c.Y >= 0 && c.Y < CampusGrid.Height; }
+            if (new Plane(Vector3.up, new Vector3(0,app.ViewFloor*3,0)).Raycast(ray, out distance))
+            { Vector3 p = ray.GetPoint(distance); c = new Cell(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.z),app.ViewFloor); return c.X >= 0 && c.X < CampusGrid.Width && c.Y >= 0 && c.Y < CampusGrid.Height; }
             c = default(Cell); return false;
         }
         private void Click(Vector2 p) { Cell cell; if (Ground(p, out cell)) app.BuildAt(cell); }
         private void Snap()
         {
+            focus.y=app.ViewFloor*3;
             focus.x = Mathf.Clamp(focus.x, 1, CampusGrid.Width - 1); focus.z = Mathf.Clamp(focus.z, 1, CampusGrid.Height - 1);
-            transform.rotation = Quaternion.Euler(48, yaw, 0);
+            transform.rotation = Quaternion.Euler(45, yaw, 0);
             transform.position = focus - transform.forward * 55;
             View.orthographicSize = zoom;
         }
