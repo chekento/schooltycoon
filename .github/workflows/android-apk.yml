@@ -23,12 +23,32 @@ jobs:
         id: activation
         shell: bash
         run: |
-          if [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ] && { [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_SERIAL" ]; }; then
-            echo 'ready=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'ready=false' >> "$GITHUB_OUTPUT"
-            echo 'APK not built: activated Unity credentials are not configured for this repository.' >> "$GITHUB_STEP_SUMMARY"
+          missing=()
+          for key in UNITY_EMAIL UNITY_PASSWORD; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+          if [ -z "$UNITY_LICENSE" ] && [ -z "$UNITY_SERIAL" ]; then
+            missing+=('UNITY_LICENSE (or UNITY_SERIAL)')
           fi
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error title=Unity activation required::APK not built. Missing Actions secrets: ${missing[*]}. See docs/ANDROID.md."
+            {
+              echo '## APK build blocked: Unity activation required'
+              echo
+              echo 'No APK was built or uploaded.'
+              echo
+              echo 'Missing Actions secrets:'
+              for key in "${missing[@]}"; do printf -- '- `%s`\n' "$key"; done
+              echo
+              echo '[Configure the required secrets](https://github.com/chekento/schooltycoon/settings/secrets/actions), then re-run this job.'
+              echo
+              echo '[Unity activation and APK download instructions](https://github.com/chekento/schooltycoon/blob/main/docs/ANDROID.md)'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
         if: steps.activation.outputs.ready == 'true'
         with:

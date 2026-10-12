@@ -1,10 +1,34 @@
 # Rektor · Android-Build
 
-Der Android-Einstieg, Touch-Bedienung, Safe Area, zuklappbare Menüs, Grafikstufen, reduzierte Bewegung und Speicherung sind implementiert. Eine **fertige APK wurde in dieser Sitzung nicht erzeugt**.
+Der Android-Einstieg, Touch-Bedienung, Safe Area, zuklappbare Menüs, Grafikstufen, reduzierte Bewegung und Speicherung sind implementiert. **Eine fertige APK liegt noch nicht vor.**
 
 ## Festgestellter Blocker
 
-Der offizielle Unity-Editor 6000.0.65f1 wurde installiert und der tatsächliche Android-Build aufgerufen. Die Verbindung zum LicenseClient scheiterte; Unity meldete `Licensing initialization failed`. Auch der GitHub-Workflow lief: Seine Aktivierungsprüfung fand keine vollständige Unity-Aktivierung und übersprang den Spieler-Build. Ein grüner Aktivierungs-Prüfjob ist deshalb kein Beleg für eine APK. Es wurde kein APK-Artefakt hochgeladen.
+Der offizielle Unity-Editor 6000.0.65f1 wurde installiert und der tatsächliche Android-Build aufgerufen. Die Verbindung zum LicenseClient scheiterte; Unity meldete `Licensing initialization failed`. Die erneute Prüfung des GitHub-Builds fand ebenfalls keine vollständige Unity-Aktivierung. Es wurde kein APK-Artefakt hochgeladen.
+
+Der Android-Workflow bricht jetzt mit einem Fehler ab, wenn die erforderlichen Aktivierungs-Secrets fehlen. Im Job und seiner Zusammenfassung stehen die fehlenden **Namen**, ohne deren Werte auszugeben. Ein erfolgreicher APK-Job setzt einen erfolgreichen Unity-Build, die APK-Prüfung und den Upload voraus.
+
+## Einmalig für GitHub einrichten
+
+Für eine vorhandene Unity-Personal-Lizenz:
+
+1. In **Unity Hub → Preferences → Licenses → Add → Get a free personal license** mit dem eigenen Unity-Konto aktivieren.
+2. Die von Unity erzeugte `Unity_lic.ulf` suchen:
+   - Windows: `C:\ProgramData\Unity\Unity_lic.ulf`
+   - macOS: `/Library/Application Support/Unity/Unity_lic.ulf`
+   - Linux: `~/.local/share/unity3d/Unity/Unity_lic.ulf`
+3. Unter [schooltycoon → Settings → Secrets and variables → Actions](https://github.com/chekento/schooltycoon/settings/secrets/actions) diese drei Repository-Secrets anlegen:
+
+   | Secret | Inhalt |
+   |---|---|
+   | `UNITY_LICENSE` | Vollständiger Inhalt der aktivierten `.ulf`-Datei |
+   | `UNITY_EMAIL` | E-Mail des zugehörigen Unity-Kontos |
+   | `UNITY_PASSWORD` | Passwort dieses Unity-Kontos |
+
+4. [Actions → Rektor Android APK](https://github.com/chekento/schooltycoon/actions/workflows/android-apk.yml) öffnen und **Run workflow → main → Run workflow** wählen. Alternativ den fehlgeschlagenen Job erneut starten.
+5. Nach einem erfolgreichen Lauf im Bereich **Artifacts** `Rektor-0.5.0-Android-APK` herunterladen, das ZIP entpacken und `Rektor-0.5.0.apk` auf dem Android-Gerät installieren.
+
+Für eine vorhandene professionelle Lizenz mit Seriennummer kann `UNITY_SERIAL` an die Stelle von `UNITY_LICENSE` treten; die beiden Konto-Secrets bleiben erforderlich. Die persönliche Aktivierung über Unity Hub und die CI-Einrichtung sind in der [GameCI-Anleitung](https://game.ci/docs/github/activation/) beschrieben. Unity Personal unterstützt keine manuelle Aktivierung über eine selbst erzeugte `.alf`-Anforderung; maßgeblich sind die [Unity-Aktivierungsmethoden](https://docs.unity3d.com/6000.0/Documentation/Manual/LicenseActivationMethods.html).
 
 ## Mit aktiviertem Unity bauen
 
