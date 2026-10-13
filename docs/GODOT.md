@@ -19,7 +19,7 @@ godot --path Godot
 
 ## Android
 
-The GitHub workflow `Rektor Godot Android` installs official tools, compiles the frontend, runs native scene smoke checks, exports the APK and checks its signature. It does not depend on the Unity secrets. Successful builds are available as Actions artifacts.
+The GitHub workflow `Rektor Godot Android` installs official tools, compiles the frontend, runs native scene smoke checks, exports the APK, checks its signature, then installs and launches that APK in an accelerated Android 30 emulator. It does not depend on the Unity secrets. Successful main-branch builds publish the [0.6.0 preview release](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0), including the APK, SHA-256 checksum and actual screenshots. Branch builds are available as Actions artifacts.
 
 For a local Linux build, install OpenJDK 17, then:
 
@@ -44,6 +44,6 @@ Both engines use save schema 5 and the same checksum/backup archive format. Godo
 
 The native Godot scene passed **19 automated frontend checks** locally: boot, main menu, difficulty, the three-step director designer, Mara guidance, hiring, connected room construction, 40 school days and event choices, six isolated save slots, backup serialization, sandbox construction, room upgrades, continuing a campaign and camera picking. All eight management pages instantiated. The shared simulation already has its independent 95-test suite, including 720-day balance runs.
 
-An Android export and a real device/emulator launch still need to be verified before a downloadable build is described as tested. Desktop headless tests do not establish mobile frame rate or touch ergonomics.
+APK export, archive integrity, application identity and Android v2/v3 signatures have been verified. The Android CI gate requires the same 19 native scene checks to pass inside the installed APK before publishing. Preview screenshots come from the running Godot frontend; the main-menu background is original generated artwork. An emulator check does not establish frame rate, touch ergonomics or compatibility on every physical ARM64 phone. Godot C# Android remains experimental; this is a development preview, not a Play Store submission.
 
 Official documentation: [Android export](https://docs.godotengine.org/en/4.5/tutorials/export/exporting_for_android.html), [C# requirements](https://docs.godotengine.org/en/4.5/tutorials/scripting/c_sharp/c_sharp_basics.html), [Godot license](https://godotengine.org/license/).

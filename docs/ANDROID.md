@@ -1,6 +1,8 @@
-# Rektor · Android-Build
+# Rektor · Unity-Android-Build
 
-Der Android-Einstieg, Touch-Bedienung, Safe Area, zuklappbare Menüs, Grafikstufen, reduzierte Bewegung und Speicherung sind implementiert. **Eine fertige APK liegt noch nicht vor.**
+Für den unabhängigen Godot-Build ohne Unity Hub: [Godot-Anleitung](GODOT.md) und [APK-Release](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0).
+
+Diese Anleitung betrifft das erhaltene Unity-Projekt. Android-Einstieg, Touch-Bedienung, Safe Area, zuklappbare Menüs, Grafikstufen, reduzierte Bewegung und Speicherung sind dort implementiert. **Eine Unity-APK liegt noch nicht vor.**
 
 ## Festgestellter Blocker
 

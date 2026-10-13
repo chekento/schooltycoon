@@ -105,6 +105,10 @@ jobs:
         with:
           name: Rektor-0.6.0-Godot-Android
           path: apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: Godot-native-previews
+          path: previews
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: rektor-godot-0.6.0
@@ -121,3 +125,4 @@ jobs:
           files: |
             apk/Rektor-0.6.0-godot.apk
             apk/SHA256SUMS.txt
+            previews/*.png

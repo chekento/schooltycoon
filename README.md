@@ -6,12 +6,12 @@ Baue eine Schule vom ersten Klassenzimmer zum mehrstöckigen Campus. Begleite Sc
 
 **Umgesetzt:** Hauptmenü mit sechs Spielständen und Sicherungen, drei Schwierigkeitsstufen, Sandbox mit unendlich Geld, Einstellungen, 146 Fächer, individuelle Raumkäufe, zwölf Story-Kapitel und Touch-Bedienung. Das Quellprojekt und seine Prüfungen liegen vollständig in diesem Repository.
 
-**Build-Stand:** Die Simulation und Unity-C#-API-Kompilierung sind geprüft. Eine fertige APK ist noch nicht verfügbar: Der lokale Unity-Lizenzdienst konnte nicht starten; die GitHub-Build-Prüfung fand keine hinterlegte Unity-Aktivierung. [Android-Build](docs/ANDROID.md) · [Prüfstand](docs/VALIDATION.md).
+**Android mit Godot:** [APK und Release-Prüfstand](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0). Android 7 oder neuer, ARM64 und x86-64, Querformat, offline. Die Vorschau verwendet einen öffentlichen Entwicklungsschlüssel. Unity benötigt für seinen eigenen APK-Build weiterhin eine Aktivierung. [Godot-Anleitung](docs/GODOT.md) · [Unity-Android-Build](docs/ANDROID.md) · [Prüfstand](docs/VALIDATION.md).
 
 ## Spiel starten
 
-1. Dieses Repository mit **Unity 6000.0.65f1** öffnen.
-2. `Assets/Scenes/Campus.unity` öffnen und Play starten.
+1. Android: die Godot-APK aus dem Release installieren. Desktop: `Godot/project.godot` mit **Godot 4.5.1 .NET** öffnen und starten; [Werkzeuge einrichten](docs/GODOT.md).
+2. Alternativ das unveränderte Unity-Projekt mit **Unity 6000.0.65f1** öffnen und `Assets/Scenes/Campus.unity` starten.
 3. Hauptmenü → Spielen → Spielstand → Entspannt / Ausgewogen / Anspruchsvoll. Der Sandbox-Einstieg besitzt eigene freie Plätze und unendlich Geld.
 4. Wähle Geschlecht, Haare und Namen der Schulleitung. Mara führt durch den ersten Ausbau. Auf Smartphones befinden sich **Bauen** und **Verwalten** unten; beide lassen sich zuklappen.
 
@@ -44,7 +44,7 @@ Eigene prozedurale 3D-Modelle mit abgerundeten Möbeln, Fachraum-Items, beweglic
 
 ![Modellvorschau: Grundausstattung links, vollständig ausgebautes Klassenzimmer rechts](docs/room-upgrades-preview.jpg)
 
-*Offline-Modellvorschau aus denselben C#-Grafikrezepten. Die Bildprüfung erfolgte in Blender. Eine Unity- oder Android-Aufnahme ist noch nicht verfügbar.* [Campus-Modellvorschau](docs/campus-model-preview.jpg) · [Art Direction](docs/ART_DIRECTION.md).
+*Offline-Modellvorschau aus denselben C#-Grafikrezepten, in Blender geprüft.* Tatsächliche Godot-Aufnahmen von Hauptmenü, Campus und Raumverwaltung liegen im Release. [Campus-Modellvorschau](docs/campus-model-preview.jpg) · [Art Direction](docs/ART_DIRECTION.md).
 
 ## Prüfen und bauen
 

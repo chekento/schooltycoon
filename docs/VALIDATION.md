@@ -1,4 +1,12 @@
-# Rektor · Prüfstand 0.5.0
+# Rektor · Prüfstand Godot 0.6.0 / Unity 0.5.0
+
+## Godot und Android
+
+13. Oktober 2026: Die Godot-4.5.1-.NET-Oberfläche kompiliert denselben Simulationskern wie Unity. 95 Simulationstests und 19 Prüfungen in der echten Godot-Szene bestehen. Geprüft sind Menü, Schwierigkeit, Schulleitung, Story, Personal, Bauen, 40 Schultage mit Ereignissen, sechs getrennte Spielstände, Sandbox, Raumkäufe und Kameraprojektion. Alle acht Verwaltungsseiten werden geöffnet.
+
+Der native Android-Export wurde gebaut; APK-Struktur, Paketkennung und v2/v3-Signatur wurden geprüft. Der Veröffentlichungsworkflow installiert genau diese APK in einem beschleunigten Android-30-Emulator und verlangt dort dieselben 19 bestandenen Szenenprüfungen. Download, Prüfsumme und tatsächlich gerenderte Bilder: [Godot-Release](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0). Physische ARM64-Telefone, Bildrate und Touch-Ergonomie benötigen weitere Spieltests.
+
+## Unity
 
 12. Oktober 2026: **95 NUnit-Simulationstests bestanden**, keine Fehler. Projektstruktur mit **43 eindeutigen Asset-GUIDs** geprüft. Core, Runtime einschließlich uGUI/Audio und Editor-Buildcode kompilieren gegen die offiziellen Unity-6000.0.65f1-Bibliotheken und die gebündelte uGUI-Assembly.
 
@@ -24,7 +32,7 @@ Zusätzlich laufen neue England- und USA-Kampagnen auf Anspruchsvoll 360 Tage na
 
 Die originalen C#-Modellrezepte wurden in Blender gerendert und visuell geprüft. Grundmöbel und gekaufte Items unterscheiden sich sichtbar. Die Hauptmenü-Illustration ist generiertes Artwork. Diese Bilder sind Modell-/Art-Prüfungen, keine Unity- oder Android-Aufnahmen.
 
-Der echte Unity-Android-Build wurde lokal zweimal versucht. LicenseClient-IPC und Lizenzinitialisierung scheiterten. Der GitHub-APK-Workflow wurde ebenfalls gestartet: Aktivierungsdaten fehlen; deshalb sind Build und Artefakt-Upload übersprungen. **Es gibt noch keine fertige APK, keinen erfolgreichen Unity-Play-Mode-Lauf und keinen bestandenen Android-Gerätetest.** [Build-Anleitung](ANDROID.md) · [Offene Prüfung](PLAYTEST.md).
+Der echte Unity-Android-Build wurde lokal zweimal versucht. LicenseClient-IPC und Lizenzinitialisierung scheiterten. Der GitHub-Unity-APK-Workflow fand ebenfalls keine Aktivierungsdaten; Build und Artefakt-Upload wurden übersprungen. **Für Unity gibt es noch keine APK und keinen erfolgreichen Play-Mode-Lauf.** Der unabhängige Godot-Build benötigt diese Aktivierung nicht. [Unity-Build-Anleitung](ANDROID.md) · [Offene Prüfung](PLAYTEST.md).
 
 ## Reproduzieren
 
