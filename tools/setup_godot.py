@@ -10,7 +10,7 @@ import urllib.request
 import zipfile
 
 VERSION = '4.5.1'
-SDK_VERSIONS = ('8.0.419', '9.0.203')
+SDK_VERSIONS = ('8.0.419', '9.0.318')
 
 def download(url, destination, expected=None):
     if destination.exists() and (not expected or hashlib.sha256(destination.read_bytes()).hexdigest() == expected):

@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 mkdir -p captures
-adb install -r Builds/Android/Rektor-0.6.0-godot.apk
+ready=false
+for attempt in {1..120}; do
+  if adb shell cmd package path android 2>/dev/null | grep -q '^package:'; then ready=true; break; fi
+  sleep 1
+done
+if [ "$ready" != true ]; then echo 'Emulator package manager did not become ready' >&2; exit 1; fi
+adb install --no-incremental -r Builds/Android/Rektor-0.6.0-godot.apk
 adb logcat -c
 adb shell am start -W -n cloud.kosch.rektor.godot/com.godot.game.GodotApp
 sleep 5

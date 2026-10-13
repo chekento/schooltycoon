@@ -19,7 +19,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.419
-            9.0.203
+            9.0.318
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -61,13 +61,15 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Builds/Android/Rektor-0.6.0-godot.apk
           sha256sum Builds/Android/Rektor-0.6.0-godot.apk > Builds/Android/SHA256SUMS.txt
       - name: Install and launch the actual APK in Android 35 emulator
+        timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 30
           arch: x86_64
-          target: google_apis
+          target: default
+          emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048 -cores 2
           script: bash tools/android_smoke.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -89,3 +91,30 @@ jobs:
             godot-export.log
             android-smoke.log
           if-no-files-found: ignore
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Rektor-0.6.0-Godot-Android
+          path: apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: rektor-godot-0.6.0
+          target_commitish: ${{ github.sha }}
+          name: Rektor 0.6.0 · Godot Android Preview
+          prerelease: true
+          body: |
+            Native Godot 4 frontend sharing the complete Unity simulation and original 3D art recipes.
+            Android APK: ARM64 + x86-64, Android 7/API 24 or newer, offline gameplay, landscape.
+            Six save slots, three difficulties, sandbox, room items, subjects, research, story and mobile controls.
+            Built and signature-verified by CI; native frontend smoke checks run on desktop and Android emulator.
+            Preview signed with the intentionally public development key, not a Play Store release identity.
+            Unity remains in the repository and on archive/unity-0.5. See docs/GODOT.md.
+          files: |
+            apk/Rektor-0.6.0-godot.apk
+            apk/SHA256SUMS.txt
