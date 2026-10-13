@@ -21,7 +21,7 @@ for attempt in {1..120}; do
     grep 'GODOT_SMOKE_PASS' android-smoke.log
     exit 0
   fi
-  if grep -Eq 'GODOT_SMOKE_FAIL|FATAL EXCEPTION|Fatal signal' android-smoke.log; then
+  if grep -Eq 'GODOT_SMOKE_FAIL|FATAL EXCEPTION|Fatal signal|oom-kill:.*ch.rektor.godot' android-smoke.log; then
     tail -100 android-smoke.log
     exit 1
   fi
