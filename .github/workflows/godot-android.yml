@@ -60,16 +60,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose Builds/Android/Rektor-0.6.0-godot.apk
           "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Builds/Android/Rektor-0.6.0-godot.apk
           sha256sum Builds/Android/Rektor-0.6.0-godot.apk > Builds/Android/SHA256SUMS.txt
-      - name: Install and launch the actual APK in Android 35 emulator
+      - name: Enable hardware acceleration on the ephemeral CI runner
+        run: sudo chmod 666 /dev/kvm
+      - name: Install and launch the actual APK in Android 30 emulator
         timeout-minutes: 15
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           arch: x86_64
           target: default
+          disable-linux-hw-accel: false
           emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048 -cores 2
+          emulator-options: -no-window -no-snapshot -accel on -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 2048 -cores 2
           script: bash tools/android_smoke.sh
       - uses: actions/upload-artifact@v4
         with:
