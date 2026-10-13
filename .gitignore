@@ -32,3 +32,9 @@ tools/obj/
 
 __pycache__/
 *.pyc
+.godot/
+Godot/android/
+Godot/.mono/
+!Godot/Rektor.csproj
+!Godot/Rektor.sln
+!Godot/Build/debug.keystore

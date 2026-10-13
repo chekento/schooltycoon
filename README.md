@@ -1,4 +1,6 @@
-# Rektor · Unity School Tycoon · 0.5.0
+# Rektor · Godot 4 + Unity School Tycoon
+
+**Godot-Port 0.6.0:** Das eigenständige Projekt liegt in [`Godot/`](Godot/). Godot und Unity verwenden denselben Simulationskern und dieselben 3D-Grafikrezepte. Das vollständige Unity-Projekt 0.5 bleibt erhalten und kann später weitergebaut werden. [Godot starten, Android bauen und beide Engines nutzen](docs/GODOT.md).
 
 Baue eine Schule vom ersten Klassenzimmer zum mehrstöckigen Campus. Begleite Schüler über Schuljahre, entwickle Lehrkräfte, Wochenpläne und Fachräume und halte den Betrieb finanziell gesund.
 

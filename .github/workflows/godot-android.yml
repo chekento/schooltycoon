@@ -1,0 +1,78 @@
+name: Rektor Godot Android
+on:
+  push:
+    branches: [main, feature/godot-0.6]
+    paths: ['Godot/**', 'Assets/SchoolTycoon/Core/**', 'tools/setup_godot.py', 'tools/verify_godot_apk.py', '.github/workflows/godot-android.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rektor-godot-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.419
+            9.0.203
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build tools
+        run: sdkmanager 'build-tools;35.0.1' 'platforms;android-35' 'platform-tools'
+      - name: Install pinned official Godot .NET editor and templates
+        run: |
+          python3 tools/setup_godot.py --templates
+          echo "GODOT=$GITHUB_WORKSPACE/.toolchain/godot/Godot_v4.5.1-stable_mono_linux_x86_64/Godot_v4.5.1-stable_mono_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Compile Godot frontend and shared simulation
+        run: dotnet build Godot/Rektor.csproj -p:UseSharedCompilation=false
+      - name: Import native Godot resources
+        run: '"$GODOT" --headless --path Godot --editor --import'
+      - name: Run actual Godot scene and frontend smoke checks
+        run: |
+          set -o pipefail
+          "$GODOT" --headless --path Godot -- --smoke-test | tee godot-smoke.log
+          rg 'GODOT_SMOKE_PASS' godot-smoke.log
+      - name: Configure Android exporter
+        run: '"$GODOT" --headless --path Godot --editor --script res://Build/ConfigureAndroid.gd'
+      - name: Render actual Godot menu, campus and upgrade UI
+        run: |
+          xvfb-run -a "$GODOT" --path Godot --rendering-method gl_compatibility -- --capture-preview
+          mkdir -p captures
+          cp /home/runner/.local/share/godot/app_userdata/Rektor/captures/*.png captures/
+      - name: Export actual Android APK
+        run: |
+          mkdir -p Builds/Android
+          "$GODOT" --headless --path Godot --export-debug Android ../Builds/Android/Rektor-0.6.0-godot.apk 2>&1 | tee godot-export.log
+      - name: Verify native APK, package and signature
+        run: |
+          python3 tools/verify_godot_apk.py Builds/Android/Rektor-0.6.0-godot.apk
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose Builds/Android/Rektor-0.6.0-godot.apk
+          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Builds/Android/Rektor-0.6.0-godot.apk
+          sha256sum Builds/Android/Rektor-0.6.0-godot.apk > Builds/Android/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rektor-0.6.0-Godot-Android
+          path: Builds/Android/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Godot-native-previews
+          path: captures/
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Godot-build-logs
+          path: |
+            godot-smoke.log
+            godot-export.log
+          if-no-files-found: ignore
