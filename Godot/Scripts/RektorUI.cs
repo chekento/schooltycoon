@@ -28,6 +28,12 @@ public partial class RektorUI : CanvasLayer
         var theme = new Theme { DefaultFontSize = OS.HasFeature("android") ? 25 : 22 };
         theme.SetColor("font_color", "Label", Ink);
         theme.SetColor("font_color", "Button", Ink);
+        theme.SetColor("font_hover_color", "Button", Ink);
+        theme.SetColor("font_pressed_color", "Button", Ink);
+        theme.SetColor("font_focus_color", "Button", Ink);
+        theme.SetColor("font_disabled_color", "Button", Muted);
+        theme.SetColor("font_color", "CheckButton", Ink);
+        theme.SetColor("font_color", "OptionButton", Ink);
         theme.SetStylebox("normal", "Button", Box("e9eee2", 14));
         theme.SetStylebox("hover", "Button", Box("d4e4d6", 14));
         theme.SetStylebox("pressed", "Button", Box("b7d2bf", 14));
@@ -80,7 +86,11 @@ public partial class RektorUI : CanvasLayer
     private Button Btn(Control parent, string label, Action action, bool primary = false, string id = null)
     {
         var b = new Button { Text = label, CustomMinimumSize = new Vector2(0, Tap), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        if (primary) { b.AddThemeStyleboxOverride("normal", Box("598c7b", 14)); b.AddThemeColorOverride("font_color", new Color("fff9ed")); }
+        if (primary)
+        {
+            b.AddThemeStyleboxOverride("normal", Box("598c7b", 14)); b.AddThemeStyleboxOverride("hover", Box("477b6b", 14)); b.AddThemeStyleboxOverride("pressed", Box("3b6d5e", 14));
+            foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) b.AddThemeColorOverride(state, new Color("fff9ed"));
+        }
         b.Pressed += () => { app.Audio.Click(); action(); }; parent.AddChild(b);
         if (id != null) buttons[id] = b;
         return b;
@@ -120,6 +130,7 @@ public partial class RektorUI : CanvasLayer
         Btn(v, app.T("Sandbox · unendlich Geld", "Sandbox · unlimited funds"), () => Slots(GameMode.Sandbox), false, "sandbox");
         Btn(v, app.T("Einstellungen", "Settings"), Settings, false, "settings");
         Btn(v, app.T("Spielstand importieren", "Import a save"), ImportDialog);
+        Btn(v, app.T("Spielstand exportieren", "Export a save"), ExportDialog);
         Btn(v, app.T("Über Rektor / Engines", "About Rektor / engines"), About);
         Text(v, app.T("Godot 4 · Version 0.6.0\nDas Unity-Projekt bleibt im Repository erhalten.", "Godot 4 · Version 0.6.0\nThe Unity project remains in the repository."), 18);
     }
@@ -504,6 +515,34 @@ public partial class RektorUI : CanvasLayer
             dialog.QueueFree();
         };
         dialog.Canceled += dialog.QueueFree; dialog.PopupCentered(new Vector2I(900, 650));
+    }
+    private void ExportDialog()
+    {
+        OpenModal(app.T("Spielstand exportieren", "Export a save"), app.T("Portable .save-Datei mit Prüfsumme. Sichere sie für einen späteren Engine-Wechsel.", "Portable .save archive with checksum. Keep it for a future engine switch."));
+        for (int i = 1; i <= SaveArchive.Slots; i++)
+        {
+            int slot = i; var state = app.Saves.Load(slot, out _); if (state == null) continue;
+            Btn(modalBody, slot + " · " + state.SchoolName, () =>
+            {
+                var dialog = new FileDialog { FileMode = FileDialog.FileModeEnum.SaveFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, CurrentFile = "Rektor-" + slot + ".save", Filters = new[] { "*.save;Rektor save archive" } };
+                root.AddChild(dialog);
+                dialog.FileSelected += path =>
+                {
+                    try
+                    {
+                        if (!app.Saves.Write(slot, state, out string error)) throw new IOException(error);
+                        string data = File.ReadAllText(app.Saves.PathFor(slot));
+                        using var file = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
+                        if (file == null) throw new IOException(Godot.FileAccess.GetOpenError().ToString());
+                        file.StoreString(data); file.Flush();
+                        Toast(app.T("Spielstand exportiert.", "Save exported."));
+                    }
+                    catch (Exception e) { Toast(app.T("Export fehlgeschlagen: ", "Export failed: ") + e.Message); }
+                    dialog.QueueFree();
+                };
+                dialog.Canceled += dialog.QueueFree; dialog.PopupCentered(new Vector2I(900, 650));
+            });
+        }
     }
     public void Toast(string message) { if (toast == null) { GD.Print(message); return; } toast.Text = message; toast.Visible = true; toastTime = 4; }
     public override void _Process(double delta) { if (toastTime > 0 && (toastTime -= delta) <= 0) toast.Visible = false; }

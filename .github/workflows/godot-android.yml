@@ -40,7 +40,7 @@ jobs:
         run: |
           set -o pipefail
           "$GODOT" --headless --path Godot -- --smoke-test | tee godot-smoke.log
-          rg 'GODOT_SMOKE_PASS' godot-smoke.log
+          grep -q 'GODOT_SMOKE_PASS' godot-smoke.log
       - name: Configure Android exporter
         run: '"$GODOT" --headless --path Godot --editor --script res://Build/ConfigureAndroid.gd'
       - name: Render actual Godot menu, campus and upgrade UI
