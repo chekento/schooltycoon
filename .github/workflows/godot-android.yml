@@ -28,6 +28,7 @@ jobs:
         run: |
           python3 tools/setup_android.py
           echo "ANDROID_HOME=$GITHUB_WORKSPACE/.toolchain/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/.toolchain/android-sdk" >> "$GITHUB_ENV"
       - name: Install pinned official Godot .NET editor and templates
         run: |
           python3 tools/setup_godot.py --templates
@@ -49,6 +50,7 @@ jobs:
           mkdir -p captures
           cp /home/runner/.local/share/godot/app_userdata/Rektor/captures/*.png captures/
       - name: Export actual Android APK
+        shell: bash
         run: |
           mkdir -p Builds/Android
           "$GODOT" --headless --path Godot --export-debug Android ../Builds/Android/Rektor-0.6.0-godot.apk 2>&1 | tee godot-export.log
@@ -58,6 +60,15 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose Builds/Android/Rektor-0.6.0-godot.apk
           "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Builds/Android/Rektor-0.6.0-godot.apk
           sha256sum Builds/Android/Rektor-0.6.0-godot.apk > Builds/Android/SHA256SUMS.txt
+      - name: Install and launch the actual APK in Android 35 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash tools/android_smoke.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Rektor-0.6.0-Godot-Android
@@ -76,4 +87,5 @@ jobs:
           path: |
             godot-smoke.log
             godot-export.log
+            android-smoke.log
           if-no-files-found: ignore

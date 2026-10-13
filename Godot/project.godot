@@ -22,6 +22,8 @@ project/assembly_name="Rektor"
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
+textures/vram_compression/import_etc2_astc=true
+textures/vram_compression/import_s3tc_bptc=true
 environment/defaults/default_clear_color=Color(0.82, 0.9, 0.86, 1)
 
 [input_devices]

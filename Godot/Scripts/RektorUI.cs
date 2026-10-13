@@ -198,10 +198,12 @@ public partial class RektorUI : CanvasLayer
     public void Hud()
     {
         ClearScreen();
-        var header = Panel(screen); header.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide); header.OffsetLeft = 18; header.OffsetRight = -18; header.OffsetTop = 12; header.OffsetBottom = 106;
+        float chrome = Tap + 38;
+        var header = Panel(screen); header.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide); header.OffsetLeft = 18; header.OffsetRight = -18; header.OffsetTop = 12; header.OffsetBottom = 12 + chrome;
         var row = Row(header); stats = Text(row, "", OS.HasFeature("android") ? 22 : 21, true);
         var menu = Btn(row, app.T("Menü", "Menu"), app.ReturnToMenu); menu.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
-        var bottom = Panel(screen); bottom.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide); bottom.OffsetLeft = 18; bottom.OffsetRight = -18; bottom.OffsetTop = -110; bottom.OffsetBottom = -12;
+        menu.CustomMinimumSize = new Vector2(125, Tap);
+        var bottom = Panel(screen); bottom.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide); bottom.OffsetLeft = 18; bottom.OffsetRight = -18; bottom.OffsetTop = -12 - chrome; bottom.OffsetBottom = -12;
         var controls = Row(bottom);
         Btn(controls, app.T("Bauen", "Build"), () => { buildOpen = !buildOpen; manageOpen = false; Hud(); }, buildOpen, "build");
         Btn(controls, app.T("Verwalten", "Manage"), () => ShowManagement(tab), manageOpen, "manage");
@@ -212,10 +214,10 @@ public partial class RektorUI : CanvasLayer
         if (buildOpen || manageOpen)
         {
             var panel = Panel(screen); panel.AnchorLeft = 0; panel.AnchorRight = 0; panel.AnchorTop = 0; panel.AnchorBottom = 1;
-            panel.OffsetLeft = 18; panel.OffsetRight = Math.Min(650, W * .48f); panel.OffsetTop = 120; panel.OffsetBottom = -124;
+            panel.OffsetLeft = 18; panel.OffsetRight = Math.Min(650, W * .48f); panel.OffsetTop = 26 + chrome; panel.OffsetBottom = -26 - chrome;
             var v = Column(panel);
             var top = Row(v); Text(top, buildOpen ? app.T("DEINE SCHULE", "YOUR SCHOOL") : app.T("CAMPUS VERWALTEN", "MANAGE CAMPUS"), 24, true);
-            Btn(top, "×", () => { buildOpen = manageOpen = false; Hud(); }).SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+            var close = Btn(top, "×", () => { buildOpen = manageOpen = false; Hud(); }); close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd; close.CustomMinimumSize = new Vector2(64, Tap);
             if (manageOpen)
             {
                 var tabs = new OptionButton { CustomMinimumSize = new Vector2(0, Tap), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
@@ -226,7 +228,7 @@ public partial class RektorUI : CanvasLayer
             if (buildOpen) BuildPalette(); else switch (tab) { case 0: Overview(); break; case 1: Staff(); break; case 2: Classes(); break; case 3: Budget(); break; case 4: Pupils(); break; case 5: Research(); break; case 6: Clubs(); break; default: Year(); break; }
         }
         modeLabel = Text(screen, "", 20, true); modeLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
-        modeLabel.OffsetLeft = -440; modeLabel.OffsetRight = -28; modeLabel.OffsetTop = -164; modeLabel.OffsetBottom = -118; modeLabel.HorizontalAlignment = HorizontalAlignment.Right;
+        modeLabel.OffsetLeft = -470; modeLabel.OffsetRight = -28; modeLabel.OffsetTop = -68 - chrome; modeLabel.OffsetBottom = -22 - chrome; modeLabel.HorizontalAlignment = HorizontalAlignment.Right;
         RefreshStats(); if (modal != null) safe.MoveChild(modal, -1);
     }
     public void ShowManagement(int n) { tab = n; manageOpen = true; buildOpen = false; Hud(); }
@@ -449,7 +451,7 @@ public partial class RektorUI : CanvasLayer
         var p = Panel(modal); p.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
         float w = Math.Min(760, W - 72), h = Math.Min(810, H - 72);
         p.OffsetLeft = -w / 2; p.OffsetRight = w / 2; p.OffsetTop = -h / 2; p.OffsetBottom = h / 2;
-        var v = Column(p); var row = Row(v); Text(row, title, 31, true); Btn(row, "×", Back).SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        var v = Column(p); var row = Row(v); Text(row, title, 31, true); var close = Btn(row, "×", Back); close.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd; close.CustomMinimumSize = new Vector2(64, Tap);
         modalBody = Scroll(v); if (!string.IsNullOrEmpty(body)) Text(modalBody, body, 22);
     }
     public void CloseModal()

@@ -28,10 +28,10 @@ public partial class CampusView : Node3D
         {
             BackgroundMode = Godot.Environment.BGMode.Color, BackgroundColor = new Color("d7e6dd"),
             AmbientLightSource = Godot.Environment.AmbientSource.Color, AmbientLightColor = new Color("f5e8cf"),
-            AmbientLightEnergy = .75f, ReflectedLightSource = Godot.Environment.ReflectionSource.Disabled
+            AmbientLightEnergy = .4f, ReflectedLightSource = Godot.Environment.ReflectionSource.Disabled
         };
         AddChild(new WorldEnvironment { Environment = environment });
-        sun = new DirectionalLight3D { RotationDegrees = new Vector3(-48, -28, 0), LightColor = new Color("fff0d6"), LightEnergy = 1.25f, ShadowEnabled = true };
+        sun = new DirectionalLight3D { RotationDegrees = new Vector3(-48, -28, 0), LightColor = new Color("fff0d6"), LightEnergy = .75f, ShadowEnabled = true };
         AddChild(sun);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = distance, Far = 180, Current = true };
         AddChild(Camera);
@@ -102,6 +102,7 @@ public partial class CampusView : Node3D
     {
         if (app == null) return;
         sun.ShadowEnabled = app.Settings.Graphics > 0;
+        GetViewport().Msaa3D = app.Settings.Graphics == 0 ? Viewport.Msaa.Disabled : app.Settings.Graphics == 1 ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Msaa4X;
         foreach (var r in app.State.Rooms)
         {
             if (!roomNodes.TryGetValue(r.Id, out var root)) continue;
@@ -128,9 +129,9 @@ public partial class CampusView : Node3D
         m = p.Shape switch
         {
             VisualShape.Box => RoundedBox(new Vector3(p.W, p.H, p.D)),
-            VisualShape.Sphere => new SphereMesh { Radius = .5f, Height = 1, RadialSegments = 12, Rings = 8 },
-            VisualShape.Cylinder => new CylinderMesh { TopRadius = .5f, BottomRadius = .5f, Height = 1, RadialSegments = 12 },
-            _ => new CapsuleMesh { Radius = .5f, Height = 2, RadialSegments = 12, Rings = 6 }
+            VisualShape.Sphere => new SphereMesh { Radius = .5f, Height = 1, RadialSegments = 24, Rings = 12 },
+            VisualShape.Cylinder => new CylinderMesh { TopRadius = .5f, BottomRadius = .5f, Height = 1, RadialSegments = 20 },
+            _ => new CapsuleMesh { Radius = .5f, Height = 2, RadialSegments = 20, Rings = 8 }
         };
         meshes.Add(key, m); return m;
     }
