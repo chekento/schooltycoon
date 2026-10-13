@@ -2,6 +2,10 @@
 
 **Godot-Port 0.6.0:** Das eigenständige Projekt liegt in [`Godot/`](Godot/). Godot und Unity verwenden denselben Simulationskern und dieselben 3D-Grafikrezepte. Das vollständige Unity-Projekt 0.5 bleibt erhalten und kann später weitergebaut werden. [Godot starten, Android bauen und beide Engines nutzen](docs/GODOT.md).
 
+**[Android-APK herunterladen (208 MB)](https://github.com/chekento/schooltycoon/releases/download/rektor-godot-0.6.0/Rektor-0.6.0-godot.apk)** · [Release mit Prüfsumme und Spielaufnahmen](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0)
+
+Der veröffentlichte Build besteht 95 Simulationstests sowie 19 Szenenprüfungen auf Desktop und innerhalb der installierten Android-APK. [Erfolgreicher APK-Build und Veröffentlichung](https://github.com/chekento/schooltycoon/actions/runs/38461310461).
+
 Baue eine Schule vom ersten Klassenzimmer zum mehrstöckigen Campus. Begleite Schüler über Schuljahre, entwickle Lehrkräfte, Wochenpläne und Fachräume und halte den Betrieb finanziell gesund.
 
 **Umgesetzt:** Hauptmenü mit sechs Spielständen und Sicherungen, drei Schwierigkeitsstufen, Sandbox mit unendlich Geld, Einstellungen, 146 Fächer, individuelle Raumkäufe, zwölf Story-Kapitel und Touch-Bedienung. Das Quellprojekt und seine Prüfungen liegen vollständig in diesem Repository.

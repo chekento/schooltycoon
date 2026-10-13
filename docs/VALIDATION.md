@@ -4,7 +4,7 @@
 
 13. Oktober 2026: Die Godot-4.5.1-.NET-Oberfläche kompiliert denselben Simulationskern wie Unity. 95 Simulationstests und 19 Prüfungen in der echten Godot-Szene bestehen. Geprüft sind Menü, Schwierigkeit, Schulleitung, Story, Personal, Bauen, 40 Schultage mit Ereignissen, sechs getrennte Spielstände, Sandbox, Raumkäufe und Kameraprojektion. Alle acht Verwaltungsseiten werden geöffnet.
 
-Der native Android-Export wurde gebaut; APK-Struktur, Paketkennung und v2/v3-Signatur wurden geprüft. Der Veröffentlichungsworkflow installiert genau diese APK in einem beschleunigten Android-30-Emulator und verlangt dort dieselben 19 bestandenen Szenenprüfungen. Download, Prüfsumme und tatsächlich gerenderte Bilder: [Godot-Release](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0). Physische ARM64-Telefone, Bildrate und Touch-Ergonomie benötigen weitere Spieltests.
+Der native Android-Export wurde gebaut; APK-Struktur, Paketkennung und v2/v3-Signatur wurden geprüft. Genau diese APK wurde in einem beschleunigten Android-30-x86-64-Emulator mit 4 GB RAM und ANGLE/SwiftShader installiert: **Alle 19 Szenenprüfungen bestanden auch innerhalb der APK**, einschließlich sechs Spielständen, Schreiben, Laden und Fortsetzen. [Erfolgreicher Build und Release](https://github.com/chekento/schooltycoon/actions/runs/38461310461). Download, Prüfsumme und tatsächlich gerenderte Bilder: [Godot-Release](https://github.com/chekento/schooltycoon/releases/tag/rektor-godot-0.6.0). Physische ARM64-Telefone, Bildrate und Touch-Ergonomie benötigen weitere Spieltests.
 
 ## Unity
 
