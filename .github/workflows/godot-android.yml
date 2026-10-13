@@ -2,7 +2,7 @@ name: Rektor Godot Android
 on:
   push:
     branches: [main, feature/godot-0.6]
-    paths: ['Godot/**', 'Assets/SchoolTycoon/Core/**', 'tools/setup_godot.py', 'tools/verify_godot_apk.py', '.github/workflows/godot-android.yml']
+    paths: ['Godot/**', 'Assets/SchoolTycoon/Core/**', 'tools/setup_godot.py', 'tools/setup_android.py', 'tools/android_smoke.sh', 'tools/verify_godot_apk.py', '.github/workflows/godot-android.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -72,7 +72,7 @@ jobs:
           disable-linux-hw-accel: false
           emulator-boot-timeout: 600
           disable-animations: true
-          emulator-options: -no-window -no-snapshot -accel on -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096 -cores 2 -partition-size 4096
+          emulator-options: -no-window -no-snapshot -accel on -gpu swangle -noaudio -no-boot-anim -camera-back none -memory 4096 -cores 2 -partition-size 4096
           script: bash tools/android_smoke.sh
       - uses: actions/upload-artifact@v4
         with:

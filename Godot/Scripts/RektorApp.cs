@@ -103,6 +103,7 @@ public partial class RektorApp : Node3D
     {
         if (Slot < 1 || !State.HasDirector || !force && !notify && !Settings.Autosave) return true;
         bool ok = Saves.Write(Slot, State, out string error);
+        if (!ok) GD.PushWarning("SAVE_WRITE_FAIL " + error);
         if (!ok || notify) UI.Toast(ok ? T("Campus gespeichert.", "Campus saved.") : T("Speichern fehlgeschlagen: ", "Save failed: ") + error);
         return ok;
     }
