@@ -2,7 +2,7 @@
 set -euo pipefail
 mkdir -p captures
 package=cloud.kosch.rektor.godot
-activity="$package/com.godot.game.GodotApp"
+activity=""
 logfile=android-smoke.log
 failures='GODOT_SMOKE_FAIL|REKTOR_TOUCH_FAIL|REKTOR_ACTION_FAIL|FATAL EXCEPTION|Fatal signal|oom-kill:.*ch.rektor.godot'
 
@@ -22,6 +22,8 @@ check_alive() {
   adb shell pidof "$package" | tr -d '\r' | grep -q '[0-9]'
 }
 adb install --no-incremental -r Builds/Android/Rektor-0.7.0-godot.apk
+activity=$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$package" | tr -d '\r' | tail -1)
+case "$activity" in "$package"/*) echo "Launcher component: $activity" ;; *) echo 'No exported launcher activity found' >&2; exit 1 ;; esac
 
 # Cold launcher starts must stay open rather than merely display the splash screen.
 for launch in 1 2 3; do
