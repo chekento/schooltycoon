@@ -22,6 +22,7 @@ public partial class RektorUI : CanvasLayer
     private float H => GetViewport().GetVisibleRect().Size.Y;
     private float Tap => OS.HasFeature("android") ? 84 : 60;
     public bool ModalOpen => modal != null;
+    public bool BlocksWorldPoint(Vector2 point) => app.Menu || ModalOpen || screen != null && screen.GetChildren().OfType<PanelContainer>().Any(p => p.IsVisibleInTree() && p.GetGlobalRect().HasPoint(point));
     public void Initialize(RektorApp owner)
     {
         app = owner;
@@ -91,19 +92,29 @@ public partial class RektorUI : CanvasLayer
             b.AddThemeStyleboxOverride("normal", Box("598c7b", 14)); b.AddThemeStyleboxOverride("hover", Box("477b6b", 14)); b.AddThemeStyleboxOverride("pressed", Box("3b6d5e", 14));
             foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) b.AddThemeColorOverride(state, new Color("fff9ed"));
         }
-        b.Pressed += () => { app.Audio.Click(); action(); }; parent.AddChild(b);
+        b.Pressed += () =>
+        {
+            try { app.Audio.Click(); action(); }
+            catch (Exception error) { app.Diagnostics.Failure(error); Toast(app.T("Aktion konnte nicht abgeschlossen werden. Diagnose im Hauptmenü öffnen.", "Action could not finish. Open diagnostics from the main menu.")); }
+        }; parent.AddChild(b);
         if (id != null) buttons[id] = b;
         return b;
     }
     private VBoxContainer Scroll(Control parent)
     {
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         parent.AddChild(scroll); return Column(scroll);
     }
     private void Card(Control parent, string title, string body)
     { var v = Column(Panel(parent, "eef0e3")); Text(v, title, 25, true); if (!string.IsNullOrEmpty(body)) Text(v, body, 20); }
     public void TestClick(string id)
     { if (!buttons.TryGetValue(id, out var b) || b.Disabled) throw new InvalidOperationException("Unavailable UI action: " + id); b.EmitSignal(Button.SignalName.Pressed); }
+    public Button TestButton(string id) => buttons.TryGetValue(id, out var b) && GodotObject.IsInstanceValid(b) && !b.IsQueuedForDeletion() && b.IsVisibleInTree() ? b : null;
+    public void TestReveal(Button button)
+    {
+        for (Node n = button.GetParent(); n != null; n = n.GetParent())
+            if (n is ScrollContainer scroll) scroll.EnsureControlVisible(button);
+    }
     private void ClearScreen()
     {
         if (screen != null) { safe.RemoveChild(screen); screen.QueueFree(); }
@@ -126,13 +137,24 @@ public partial class RektorUI : CanvasLayer
         Text(v, "REKTOR", 72, true);
         Text(v, app.T("Ein Campus. Tausend Möglichkeiten.", "One campus. A thousand possibilities."), 26);
         Text(v, app.T("Vom ersten Klassenzimmer zur Schule deiner Träume.", "From your first classroom to the school of your dreams."), 22);
+        if (app.Settings.LastSlot > 0 && app.Saves.Load(app.Settings.LastSlot, out _) is SchoolState last)
+            Btn(v, app.T("Zuletzt gespielt: ", "Last played: ") + last.SchoolName, () => app.Load(app.Settings.LastSlot), true, "resumeLast");
         Btn(v, app.T("Kampagne spielen", "Play campaign"), () => Slots(GameMode.Campaign), true, "campaign");
         Btn(v, app.T("Sandbox · unendlich Geld", "Sandbox · unlimited funds"), () => Slots(GameMode.Sandbox), false, "sandbox");
         Btn(v, app.T("Einstellungen", "Settings"), Settings, false, "settings");
         Btn(v, app.T("Spielstand importieren", "Import a save"), ImportDialog);
         Btn(v, app.T("Spielstand exportieren", "Export a save"), ExportDialog);
         Btn(v, app.T("Über Rektor / Engines", "About Rektor / engines"), About);
-        Text(v, app.T("Godot 4 · Version 0.6.0\nDas Unity-Projekt bleibt im Repository erhalten.", "Godot 4 · Version 0.6.0\nThe Unity project remains in the repository."), 18);
+        Btn(v, app.T("Hilfe / Startdiagnose", "Help / startup diagnostics"), Diagnostics, false, "diagnostics");
+        if (app.Diagnostics.Interrupted) Text(v, app.T("Der letzte Lauf wurde unterbrochen. Android startet mit sparsamer Grafik; deine Spielstände bleiben erhalten.", "The previous session was interrupted. Android starts with low graphics; your saves are preserved."), 18);
+        Text(v, app.T("Godot 4 · Version 0.7.0\nDas Unity-Projekt bleibt im Repository erhalten.", "Godot 4 · Version 0.7.0\nThe Unity project remains in the repository."), 18);
+    }
+    private void Diagnostics()
+    {
+        OpenModal(app.T("Hilfe / Startdiagnose", "Help / startup diagnostics"), app.T("Bei einem erneuten Abbruch kannst du diese lokale Diagnose kopieren. Sie enthält keine Schülernamen oder Spielstand-Inhalte.", "If the app closes again, copy this local report. It contains no pupil names or save contents."));
+        Text(modalBody, app.Diagnostics.Report(), 18);
+        Btn(modalBody, app.T("Diagnose kopieren", "Copy diagnostics"), () => { DisplayServer.ClipboardSet(app.Diagnostics.Report()); Toast(app.T("Diagnose kopiert.", "Diagnostics copied.")); });
+        Btn(modalBody, app.T("Sparsamen Grafikstart aktivieren", "Use low graphics"), () => { app.Settings.Graphics = 0; app.Settings.Fps = 30; app.ApplySettings(); app.Campus.Rebuild(); CloseModal(); });
     }
     private void About()
     {
@@ -201,7 +223,7 @@ public partial class RektorUI : CanvasLayer
         float chrome = Tap + 38;
         var header = Panel(screen); header.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide); header.OffsetLeft = 18; header.OffsetRight = -18; header.OffsetTop = 12; header.OffsetBottom = 12 + chrome;
         var row = Row(header); stats = Text(row, "", OS.HasFeature("android") ? 22 : 21, true);
-        var menu = Btn(row, app.T("Menü", "Menu"), app.ReturnToMenu); menu.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        var menu = Btn(row, app.T("Menü", "Menu"), app.ReturnToMenu, false, "menu"); menu.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
         menu.CustomMinimumSize = new Vector2(125, Tap);
         var bottom = Panel(screen); bottom.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide); bottom.OffsetLeft = 18; bottom.OffsetRight = -18; bottom.OffsetTop = -12 - chrome; bottom.OffsetBottom = -12;
         var controls = Row(bottom);
@@ -209,7 +231,7 @@ public partial class RektorUI : CanvasLayer
         Btn(controls, app.T("Verwalten", "Manage"), () => ShowManagement(tab), manageOpen, "manage");
         Btn(controls, app.Paused ? app.T("Start", "Play") : app.T("Pause", "Pause"), () => { app.Paused = !app.Paused; Hud(); }, true, "pause");
         Btn(controls, app.T("Tag beenden", "End day"), app.EndDay, false, "endDay");
-        Btn(controls, app.T("Ansicht", "View"), CameraOptions);
+        Btn(controls, app.T("Ansicht / Mara", "View / Mara"), CameraOptions, false, "view");
         Btn(controls, app.T("Speichern", "Save"), () => app.Save(true));
         if (buildOpen || manageOpen)
         {
@@ -248,6 +270,9 @@ public partial class RektorUI : CanvasLayer
         Btn(modalBody, app.T("Ansicht drehen", "Rotate view"), app.Campus.Orbit);
         Btn(modalBody, app.T("Kamera zurücksetzen", "Reset camera"), app.Campus.Home);
         Btn(modalBody, app.T("Geschwindigkeit: ", "Speed: ") + app.Speed + "×", () => { app.Speed = app.Speed == 1 ? 3 : 1; CloseModal(); Hud(); });
+        Btn(modalBody, app.T("Mara · Mein nächster Schritt", "Mara · My next step"), Story, true, "story");
+        Btn(modalBody, app.T("Schulvision · 12 Kapitel", "School vision · 12 chapters"), Roadmap, false, "roadmap");
+        Btn(modalBody, app.T("Wie baue ich Schultürme?", "How do I build school towers?"), TowerHelp, false, "towerGuide");
         Btn(modalBody, app.T("Zurück", "Back"), CloseModal);
     }
     private void BuildPalette()
@@ -286,7 +311,10 @@ public partial class RektorUI : CanvasLayer
             foreach (var spec in RektorCatalog.For(room.Kind))
             {
                 var item = spec; bool owned = room.Items.Contains(item.Id); var check = app.Sim.CanBuyItem(room, item.Id);
+                string effects = app.T("Lernen +", "Learning +") + item.Learning + " · " + app.T("Freude +", "Joy +") + item.Happiness + " · " + app.T("Wohlbefinden +", "Wellbeing +") + item.Wellbeing + " · " + app.T("Sauberkeit +", "Cleanliness +") + item.Cleanliness;
+                if (item.Id is RoomItem.DeskRow1 or RoomItem.DeskRow2 or RoomItem.DeskRow3) effects += app.T(" · 4 zusätzliche Plätze", " · 4 extra seats");
                 var b = Btn(content, (owned ? "✓ " : "") + app.T(item.NameDe, item.NameEn) + "\n" + app.Sim.ItemCost(item.Id) + " € · " + item.Daily + app.T(" €/Tag", " €/day"), () => app.Act(app.Sim.BuyRoomItem(room.Id, item.Id)), !item.Decoration);
+                Text(content, effects + (item.Decoration ? app.T("\nDekoration folgt nach funktionaler Ausstattung.", "\nDecoration follows functional equipment.") : ""), 18);
                 b.Disabled = owned || !check.Success;
                 if (!owned && !check.Success) Text(content, check.Code == "locked" ? app.T("Ab Tag ", "From day ") + item.Day + (item.Research.HasValue ? " · " + app.T("Forschung erforderlich", "research required") : "") : app.Error(check.Code), 18);
             }
@@ -433,6 +461,23 @@ public partial class RektorUI : CanvasLayer
         OpenModal(app.T("Mara begleitet deinen Campus", "Mara guides your campus"), app.T("Ein guter Anfang braucht nicht alles auf einmal.", "A good beginning does not need everything at once.")); Guide(modalBody);
         Btn(modalBody, app.T("Mein Team aufbauen", "Build my team"), () => { CloseModal(); ShowManagement(1); }, true, "storyTeam");
         Btn(modalBody, app.T("Campus erkunden", "Explore campus"), CloseModal);
+        Btn(modalBody, app.T("Nächsten Ausbau planen", "Plan the next expansion"), () => { CloseModal(); buildOpen = true; manageOpen = false; Hud(); });
+        Btn(modalBody, app.T("Alle zwölf Kapitel ansehen", "View all twelve chapters"), Roadmap);
+    }
+    private void Roadmap()
+    {
+        string[] de = { "Mindestens eine Lehrkraft.", "Toilette und Lehrerzimmer, mindestens Tag 4 und 60 % Zufriedenheit.", "Zwei Klassenzimmer und zwei Lehrkräfte.", "Mensa und mindestens 24 Schüler.", "Bibliothek und die erste Prüfung.", "Drei funktionale Raumkäufe und eine fortgebildete Lehrkraft.", "Eine Klasse im Obergeschoss, verbunden mit Flur und Treppen.", "Ab Tag 90: Labor, Kunstraum, zwei Forschungen und sieben Fachgruppen in den Wochenplänen.", "Ab Tag 120: zwei aktive AGs, Jahreszeugnis mit 65 % und zehn positive Bilanzen in Folge.", "Ab Tag 180: 96 betreute Schüler, Prestige und eine Klasse im zweiten Obergeschoss.", "Mindestens drei Schülerabschlüsse.", "Drei Prestige-Punkte und alle vier Forschungen." };
+        string[] en = { "At least one teacher.", "Toilet and staffroom, day 4 or later and 60% happiness.", "Two classrooms and two teachers.", "Canteen and at least 24 pupils.", "Library and the first exam.", "Three functional room purchases and a trained teacher.", "An upstairs class connected by corridors and stairs.", "From day 90: science lab, art room, two research projects and seven subject groups in weekly plans.", "From day 120: two active clubs, annual report averaging 65% and ten positive balances in a row.", "From day 180: 96 served pupils, prestige and a class on the second upper floor.", "At least three graduates.", "Three prestige points and all four research projects." };
+        OpenModal(app.T("Deine Schulvision", "Your school vision"), app.T("Mara begleitet dich über mehrere Schuljahre. Die Voraussetzungen gelten für Kampagnen; Sandbox bleibt frei.", "Mara guides you over several school years. These conditions apply to campaigns; sandbox remains free."));
+        for (int i = 0; i < 12; i++) Card(modalBody, (i < app.State.StoryChapter ? "✓ " : i == app.State.StoryChapter ? "→ " : "○ ") + (i + 1) + " · " + app.T(SchoolSimulation.StoryDe[i], SchoolSimulation.StoryEn[i]), app.T(de[i], en[i]));
+    }
+    private void TowerHelp()
+    {
+        OpenModal(app.T("Vom Schulflur zum Schulturm", "From corridor to school tower"), app.T("Dein Campus kann sechs Geschosse besitzen: Erdgeschoss und fünf Obergeschosse.", "Your campus can have six floors: ground floor and five upper floors."));
+        Card(modalBody, "1 · " + app.T("Fundament", "Foundation"), app.T("Obere Räume benötigen durchgehend tragende Räume darunter. Die ganze Grundfläche muss unterstützt sein.", "Upper rooms require supporting rooms below their entire footprint."));
+        Card(modalBody, "2 · " + app.T("Treppen stapeln", "Stack stairwells"), app.T("Platziere Treppenhäuser auf jeder Etage an exakt derselben Stelle. Verbinde sie mit den Fluren dieser Etage.", "Place stairwells at exactly the same position on each floor. Connect them to that floor's corridors."));
+        Card(modalBody, "3 · " + app.T("Räume verbinden", "Connect rooms"), app.T("Ein Klassen- oder Fachraum braucht einen erreichbaren Flurweg bis zum Schuleingang. Ein grüner Bauplan zeigt einen gültigen Platz.", "Every classroom or specialist room needs a corridor route to the school entrance. A green footprint indicates a valid location."));
+        Card(modalBody, "4 · " + app.T("Später wachsen", "Grow over time"), app.T("Kampagnen schalten Geschosse und Fachräume nach Schulfortschritt frei. Höhere Etagen kosten mehr. Aktuelle Voraussetzung für das erste Obergeschoss:\n", "Campaigns unlock floors and specialist rooms as the school develops. Upper floors cost more. Current first-floor requirement:\n") + app.Sim.RoomRequirement(RoomKind.Classroom, 1));
     }
     public void Pending()
     {

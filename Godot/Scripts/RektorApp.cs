@@ -10,7 +10,9 @@ using Avatar = KoSch.SchoolTycoon.Core.Avatar;
 public sealed class Preferences
 {
     public string Language = "de";
-    public int Graphics = 1, Fps = 60;
+    public int Graphics = OS.HasFeature("android") ? 0 : 1, Fps = OS.HasFeature("android") ? 30 : 60;
+    public int LastSlot;
+    public bool ResumeSession;
     public float CameraSpeed = 1, Music = .25f, Effects = .6f;
     public bool ReducedMotion, Labels = true, Autosave = true;
 }
@@ -29,6 +31,7 @@ public partial class RektorApp : Node3D
     public CampusView Campus { get; private set; }
     public RektorUI UI { get; private set; }
     public CampusAudio Audio { get; private set; }
+    public RuntimeDiagnostics Diagnostics { get; private set; }
     public bool Menu = true, Paused = true, Rotated, Demolition;
     public int Slot, Floor, Selected = -1, Speed = 1;
     public RoomKind? BuildKind;
@@ -40,11 +43,14 @@ public partial class RektorApp : Node3D
     {
         smoke = OS.GetCmdlineUserArgs().Contains("--smoke-test");
         bool preview = OS.GetCmdlineUserArgs().Contains("--capture-preview");
-        saveFolder = ProjectSettings.GlobalizePath(smoke || preview ? "user://checks/" + Guid.NewGuid().ToString("N") : "user://saves");
+        bool touch = OS.GetCmdlineUserArgs().Contains("--touch-check");
+        saveFolder = ProjectSettings.GlobalizePath(smoke || preview || touch ? "user://checks/" + Guid.NewGuid().ToString("N") : "user://saves");
         settingsPath = Path.Combine(saveFolder, "settings.json");
+        Diagnostics = new RuntimeDiagnostics(Path.Combine(saveFolder, "diagnostics"));
         try { if (File.Exists(settingsPath)) Settings = JsonSerializer.Deserialize(File.ReadAllText(settingsPath), SaveJson.Default.Preferences) ?? new(); }
         catch (Exception e) { GD.PushWarning("Settings recovered to defaults: " + e.Message); }
-        Settings.Language = Settings.Language == "en" ? "en" : "de";
+        NormalizeSettings();
+        if (Diagnostics.Interrupted && OS.HasFeature("android")) { Settings.Graphics = 0; Settings.Fps = 30; }
         Saves = new SaveArchive(saveFolder, Encode, Decode);
         Sim = new(SchoolSimulation.CreateCampaign(Difficulty.Standard));
         State.Language = Settings.Language;
@@ -53,8 +59,11 @@ public partial class RektorApp : Node3D
         UI = new RektorUI { Name = "Interface" }; AddChild(UI); UI.Initialize(this);
         ApplySettings();
         GetTree().AutoAcceptQuit = false;
+        Diagnostics.Stage("menu-ready"); GD.Print("REKTOR_READY menu");
         if (smoke) Callable.From(() => FrontendSmoke.Run(this)).CallDeferred();
         else if (preview) Callable.From(() => CapturePreview.Run(this)).CallDeferred();
+        else if (touch) Callable.From(() => TouchLifecycleCheck.Run(this)).CallDeferred();
+        else if (Settings.ResumeSession && Settings.LastSlot > 0 && !Diagnostics.Interrupted) Callable.From(() => Load(Settings.LastSlot)).CallDeferred();
     }
     public static string Encode(SchoolState s) => JsonSerializer.Serialize(s, SaveJson.Default.SchoolState);
     public static SchoolState Decode(string s) => JsonSerializer.Deserialize(s, SaveJson.Default.SchoolState);
@@ -74,6 +83,7 @@ public partial class RektorApp : Node3D
     }
     public void NewCampaign(int slot, Difficulty difficulty, GameMode mode, string name)
     {
+        Diagnostics.Stage("new-school");
         Slot = slot;
         var s = SchoolSimulation.CreateCampaign(difficulty, mode);
         s.SchoolName = string.IsNullOrWhiteSpace(name) ? "Campus " + slot : name.Trim()[..Math.Min(64, name.Trim().Length)];
@@ -82,13 +92,16 @@ public partial class RektorApp : Node3D
     public void CompleteDirector(Avatar director)
     {
         State.Director = director; State.HasDirector = true; Campus.Rebuild(); UI.Hud(); Save(false, true);
+        Settings.LastSlot = Slot; Settings.ResumeSession = true; ApplySettings();
         if (!Sim.Sandbox) UI.Story();
     }
     public bool Load(int slot)
     {
         var s = Saves.Load(slot, out string error);
         if (s == null) { UI.Toast(T("Spielstand konnte nicht geladen werden: ", "Could not load save: ") + error); return false; }
+        Diagnostics.Stage("load-school");
         Slot = slot; Replace(s);
+        Settings.LastSlot = Slot; Settings.ResumeSession = s.HasDirector; ApplySettings();
         if (!s.HasDirector) UI.Director(); else UI.Pending();
         if (error == "backup") UI.Toast(T("Sicherung wiederhergestellt.", "Backup recovered."));
         return true;
@@ -110,7 +123,7 @@ public partial class RektorApp : Node3D
     public void ReturnToMenu()
     {
         if (!Save(false, true)) return;
-        Menu = Paused = true; BuildKind = null; Demolition = false; Campus.ClearGhost(); UI.MainMenu();
+        Menu = Paused = true; Settings.ResumeSession = false; ApplySettings(); BuildKind = null; Demolition = false; Campus.HideCampus(); UI.MainMenu(); Diagnostics.Stage("menu-ready");
     }
     public void ChooseBuild(RoomKind? kind, bool demolish = false)
     {
@@ -148,20 +161,32 @@ public partial class RektorApp : Node3D
     }
     public void ApplySettings()
     {
+        NormalizeSettings();
         Engine.MaxFps = Settings.Fps == 30 ? 30 : 60;
         Audio?.Apply(); Campus?.UpdateVisibility();
         try { Directory.CreateDirectory(saveFolder); File.WriteAllText(settingsPath, JsonSerializer.Serialize(Settings, SaveJson.Default.Preferences)); }
         catch (Exception e) { GD.PushWarning("Settings could not be saved: " + e.Message); }
     }
+    private void NormalizeSettings()
+    {
+        Settings.Language = Settings.Language == "en" ? "en" : "de";
+        Settings.Graphics = Math.Clamp(Settings.Graphics, 0, 2);
+        Settings.Fps = Settings.Fps == 60 ? 60 : 30;
+        Settings.LastSlot = Math.Clamp(Settings.LastSlot, 0, SaveArchive.Slots);
+        Settings.CameraSpeed = float.IsFinite(Settings.CameraSpeed) ? Math.Clamp(Settings.CameraSpeed, .5f, 2) : 1;
+        Settings.Music = float.IsFinite(Settings.Music) ? Math.Clamp(Settings.Music, 0, 1) : .25f;
+        Settings.Effects = float.IsFinite(Settings.Effects) ? Math.Clamp(Settings.Effects, 0, 1) : .6f;
+    }
     public override void _Notification(int what)
     {
-        if (what == NotificationApplicationPaused) Save(false, true);
+        if (what == NotificationApplicationPaused) { Paused = true; Campus?.HideCampus(); Save(false, true); if (Diagnostics != null) { ApplySettings(); Diagnostics.Clean(); } }
+        if (what == NotificationApplicationResumed) { Diagnostics?.Stage(Menu ? "menu-resumed" : "campus-resumed"); if (!Menu && State.HasDirector) Campus?.Rebuild(); }
         if (what == NotificationWMCloseRequest || what == NotificationWMGoBackRequest)
         {
             if (UI == null) return;
             if (UI.ModalOpen) UI.Back();
             else if (!Menu) ReturnToMenu();
-            else if (Save(false, true)) GetTree().Quit();
+            else UI.Confirm(T("Rektor schließen?", "Close Rektor?"), T("Deine Spielstände bleiben erhalten.", "Your saves are preserved."), () => { if (Save(false, true)) { Diagnostics.Clean(); GetTree().Quit(); } });
         }
     }
     public string Error(string code)

@@ -21,6 +21,10 @@ func configure() -> void:
 	presets.set_value("preset.0.options", "keystore/debug", "res://Build/debug.keystore")
 	presets.set_value("preset.0.options", "keystore/debug_user", "androiddebugkey")
 	presets.set_value("preset.0.options", "keystore/debug_password", "android")
+	# The optimized preview uses the same public development identity as 0.6.
+	presets.set_value("preset.0.options", "keystore/release", "res://Build/debug.keystore")
+	presets.set_value("preset.0.options", "keystore/release_user", "androiddebugkey")
+	presets.set_value("preset.0.options", "keystore/release_password", "android")
 	presets.save("res://export_presets.cfg")
 	print("Using official Android template: ", templates, " exists=", FileAccess.file_exists(templates.path_join("android_debug.apk")))
 	var filename := OS.get_config_dir().path_join("godot/editor_settings-%s.%s.tres" % [version.major, version.minor])

@@ -8,9 +8,11 @@ public partial class CampusView : Node3D
 {
     private RektorApp app;
     public Camera3D Camera { get; private set; }
-    private Node3D buildings, community, ghost;
+    private Node3D buildings, community, landscape, ghost;
     private DirectionalLight3D sun;
     private readonly Dictionary<int, Node3D> roomNodes = new();
+    private readonly Dictionary<int, string> roomSignatures = new();
+    private readonly Dictionary<string, (CampusWalker Walker, string Appearance)> people = new();
     private readonly Dictionary<string, Mesh> meshes = new();
     private readonly Dictionary<string, StandardMaterial3D> materials = new();
     private readonly List<CampusWalker> walkers = new();
@@ -20,6 +22,12 @@ public partial class CampusView : Node3D
     private float travel, yaw = -.65f, distance = 25, pinch;
     private Vector3 focus = new(15, 0, 11);
     private Cell ghostCell = new(-999, -999);
+    public bool WorldBuilt { get; private set; }
+    public bool BuildPending { get; private set; }
+    public int RoomVisualBuilds { get; private set; }
+    public int VisualRoomCount => roomNodes.Count;
+    public int VisualPeopleCount => people.Count;
+    public ulong RoomIdentity(int id) => roomNodes.TryGetValue(id, out var node) ? node.GetInstanceId() : 0;
 
     public void Initialize(RektorApp owner)
     {
@@ -35,8 +43,7 @@ public partial class CampusView : Node3D
         AddChild(sun);
         Camera = new Camera3D { Projection = Camera3D.ProjectionType.Orthogonal, Size = distance, Far = 180, Current = true };
         AddChild(Camera);
-        var landscape = new Node3D { Name = "Neighbourhood" }; AddChild(landscape); Draw(landscape, CampusDesign.Landscape());
-        Rebuild(); Home();
+        Home(); HideCampus();
     }
     public void Home() { focus = new Vector3(15, app.Floor * 3, 11); yaw = -.65f; distance = 25; PositionCamera(); }
     public void Orbit() { yaw += MathF.PI / 2; PositionCamera(); }
@@ -49,15 +56,36 @@ public partial class CampusView : Node3D
     }
     public void Rebuild()
     {
+        if (app.Menu || !app.State.HasDirector) { HideCampus(); return; }
+        if (BuildPending) return;
+        BuildPending = true;
+        Callable.From(FlushBuild).CallDeferred();
+    }
+    public void HideCampus()
+    {
+        Visible = false;
+        ProcessMode = ProcessModeEnum.Disabled;
+        GetViewport().Disable3D = true;
+        ResetInput();
+    }
+    public void ResetInput() { fingers.Clear(); dragging = false; pinch = travel = 0; ClearGhost(); }
+    private void FlushBuild()
+    {
+        BuildPending = false;
+        if (app.Menu || !app.State.HasDirector) { HideCampus(); return; }
+        app.Diagnostics.Stage("campus-build-start");
         ClearGhost();
-        foreach (var old in new[] { buildings, community }) if (old != null) { RemoveChild(old); old.QueueFree(); }
-        buildings = new Node3D { Name = "Rooms" }; community = new Node3D { Name = "People" };
-        AddChild(buildings); AddChild(community); roomNodes.Clear(); walkers.Clear();
+        if (!WorldBuilt)
+        {
+            landscape = new Node3D { Name = "Neighbourhood" }; AddChild(landscape); Draw(landscape, CampusDesign.Landscape());
+            buildings = new Node3D { Name = "Rooms" }; community = new Node3D { Name = "People" };
+            AddChild(buildings); AddChild(community); WorldBuilt = true;
+        }
+        var ids = app.State.Rooms.Select(r => r.Id).ToHashSet();
+        foreach (int id in roomNodes.Keys.Where(id => !ids.Contains(id)).ToArray()) RemoveRoom(id);
         var reachable = CampusGrid.Reachable(app.State);
         foreach (Room r in app.State.Rooms)
         {
-            var root = new Node3D { Name = "Room" + r.Id, Position = new Vector3(r.X, r.Floor * 3, r.Y) };
-            buildings.AddChild(root); roomNodes.Add(r.Id, root);
             int side = 2; float at = .5f;
             if (CampusGrid.TryDoor(r, reachable, out Cell door, out Cell inside))
             {
@@ -67,23 +95,59 @@ public partial class CampusView : Node3D
                 else { side = 2; at = inside.X - r.X + .5f; }
             }
             bool rises = app.State.Rooms.Any(upper => upper.Kind == RoomKind.Staircase && upper.Floor == r.Floor + 1 && upper.X == r.X && upper.Y == r.Y);
-            Draw(root, CampusDesign.Room(r, side, at, rises));
+            string signature = FormattableString.Invariant($"{r.Kind}:{r.X}:{r.Y}:{r.Floor}:{r.Width}:{r.Height}:{r.UpgradeLevel}:{r.FurnishingVersion}:{side}:{at}:{rises}:") + string.Join(',', r.Items.OrderBy(i => i));
+            if (!roomSignatures.TryGetValue(r.Id, out var previous) || previous != signature)
+            {
+                RemoveRoom(r.Id);
+                var node = new Node3D { Name = "Room" + r.Id, Position = new Vector3(r.X, r.Floor * 3, r.Y) };
+                buildings.AddChild(node); roomNodes[r.Id] = node; roomSignatures[r.Id] = signature;
+                Draw(node, CampusDesign.Room(r, side, at, rises)); RoomVisualBuilds++;
+            }
+            var root = roomNodes[r.Id];
             if (!CampusGrid.Walkway(r))
             {
                 var group = app.State.Classes.FirstOrDefault(c => c.RoomId == r.Id);
-                var label = new Label3D { Name = "Label", Text = group == null ? app.RoomName(r.Kind) : group.Name + " · " + app.Sim.ClassSize(group) + "/" + app.Sim.RoomSeats(r),
+                var label = root.GetNodeOrNull<Label3D>("Label");
+                if (label == null)
+                {
+                    label = new Label3D { Name = "Label",
                     Position = new Vector3(r.Width / 2f, 3.05f, r.Height / 2f), FontSize = 40, PixelSize = .006f,
                     Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = new Color("355a50"), OutlineModulate = new Color("faf5e6"), OutlineSize = 8, NoDepthTest = false };
-                root.AddChild(label);
+                    root.AddChild(label);
+                }
+                label.Text = group == null ? app.RoomName(r.Kind) : group.Name + " · " + app.Sim.ClassSize(group) + "/" + app.Sim.RoomSeats(r);
             }
         }
+        var wanted = new HashSet<string>();
         int limit = app.Settings.Graphics == 0 ? 12 : app.Settings.Graphics == 1 ? 24 : 40;
-        foreach (var p in app.State.Pupils.Where(p => !p.Absent).Take(limit)) AddPerson(p.Id, null, p);
-        foreach (var e in app.State.Staff.Take(16)) AddPerson(e.Id + 100, e, null);
-        if (app.State.HasDirector) AddPerson(201, new Employee { Name = app.State.Director.Name, Role = StaffRole.Counselor }, null, true);
-        UpdateVisibility();
+        foreach (var p in app.State.Pupils.Where(p => !p.Absent).Take(limit)) SyncPerson("p:" + p.Id, p.Id, null, p, wanted);
+        foreach (var e in app.State.Staff.Take(16)) SyncPerson("e:" + e.Id, e.Id + 100, e, null, wanted);
+        SyncPerson("director", 201, new Employee { Name = app.State.Director.Name, Role = StaffRole.Counselor }, null, wanted, true);
+        foreach (string key in people.Keys.Where(k => !wanted.Contains(k)).ToArray()) RemovePerson(key);
+        walkers.Clear(); walkers.AddRange(people.Values.Select(p => p.Walker));
+        Visible = true; ProcessMode = ProcessModeEnum.Inherit; GetViewport().Disable3D = false;
+        UpdateVisibility(); app.Diagnostics.Stage("campus-ready");
     }
-    private void AddPerson(int id, Employee employee, Pupil pupil, bool director = false)
+    private void RemoveRoom(int id)
+    {
+        if (roomNodes.Remove(id, out var node)) { buildings.RemoveChild(node); node.QueueFree(); }
+        roomSignatures.Remove(id);
+    }
+    private void RemovePerson(string key)
+    {
+        if (!people.Remove(key, out var p)) return;
+        community.RemoveChild(p.Walker); p.Walker.QueueFree();
+    }
+    private void SyncPerson(string key, int id, Employee employee, Pupil pupil, HashSet<string> wanted, bool director = false)
+    {
+        wanted.Add(key);
+        string appearance = director ? app.State.Director.Gender + ":" + app.State.Director.Hair : (employee != null).ToString();
+        if (people.TryGetValue(key, out var existing) && existing.Appearance == appearance)
+        { existing.Walker.Rebind(employee, pupil); return; }
+        RemovePerson(key);
+        people[key] = (AddPerson(id, employee, pupil, director), appearance);
+    }
+    private CampusWalker AddPerson(int id, Employee employee, Pupil pupil, bool director = false)
     {
         bool adult = employee != null;
         var walker = new CampusWalker { Name = "Person" + id, Position = new Vector3(14.5f, .16f, 8.5f) };
@@ -96,13 +160,15 @@ public partial class CampusView : Node3D
         var parts = CampusDesign.Person(id, adult, hair, director ? app.State.Director.Gender : "Diverse");
         Draw(body, parts.Where(p => p.Bone == 0));
         for (int i = 0; i < 4; i++) Draw(bones[i], parts.Where(p => p.Bone == i + 1), -pivots[i]);
-        walker.Initialize(app, id, employee, pupil, bones); walkers.Add(walker);
+        walker.Initialize(app, id, employee, pupil, bones); return walker;
     }
     public void UpdateVisibility()
     {
         if (app == null) return;
         sun.ShadowEnabled = app.Settings.Graphics > 0;
-        GetViewport().Msaa3D = app.Settings.Graphics == 0 ? Viewport.Msaa.Disabled : app.Settings.Graphics == 1 ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Msaa4X;
+        bool mobile = OS.HasFeature("android");
+        GetViewport().Msaa3D = mobile || app.Settings.Graphics == 0 ? Viewport.Msaa.Disabled : app.Settings.Graphics == 1 ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Msaa4X;
+        GetViewport().Scaling3DScale = mobile ? app.Settings.Graphics == 0 ? .7f : app.Settings.Graphics == 1 ? .85f : 1 : 1;
         foreach (var r in app.State.Rooms)
         {
             if (!roomNodes.TryGetValue(r.Id, out var root)) continue;
@@ -157,7 +223,7 @@ public partial class CampusView : Node3D
     {
         float radius = Math.Min(.055f, Math.Min(size.X, Math.Min(size.Y, size.Z)) * .21f);
         Vector3 half = size * .5f, inner = half - Vector3.One * radius;
-        var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
+        using var surface = new SurfaceTool(); surface.Begin(Godot.Mesh.PrimitiveType.Triangles);
         Vector3[] normal = { Vector3.Right, Vector3.Left, Vector3.Up, Vector3.Down, Vector3.Back, Vector3.Forward };
         Vector3[] us = { Vector3.Forward, Vector3.Back, Vector3.Right, Vector3.Right, Vector3.Right, Vector3.Left };
         Vector3[] vs = { Vector3.Up, Vector3.Up, Vector3.Forward, Vector3.Back, Vector3.Up, Vector3.Up };
@@ -213,7 +279,7 @@ public partial class CampusView : Node3D
     }
     public override void _UnhandledInput(InputEvent e)
     {
-        if (app.Menu || app.UI.ModalOpen) return;
+        if (app.Menu || !WorldBuilt || BuildPending || app.UI.ModalOpen) return;
         if (e is InputEventMouseButton mouse && !OS.HasFeature("android"))
         {
             if (mouse.ButtonIndex == MouseButton.WheelUp && mouse.Pressed) Zoom(-1.5f);
@@ -231,10 +297,10 @@ public partial class CampusView : Node3D
         }
         if (e is InputEventScreenTouch touch)
         {
-            if (touch.Pressed) { fingers[touch.Index] = touch.Position; if (fingers.Count == 1) { press = last = touch.Position; travel = 0; } else travel = 100; }
+            if (touch.Pressed) { if (app.UI.BlocksWorldPoint(touch.Position)) return; fingers[touch.Index] = touch.Position; if (fingers.Count == 1) { press = last = touch.Position; travel = 0; } else travel = 100; }
             else
             {
-                bool tap = fingers.Count == 1 && fingers.ContainsKey(touch.Index) && travel < 12;
+                bool tap = fingers.Count == 1 && fingers.ContainsKey(touch.Index) && travel < 12 && !app.UI.BlocksWorldPoint(touch.Position);
                 fingers.Remove(touch.Index); pinch = 0;
                 if (tap) { var c = Pick(touch.Position); if (c.HasValue) app.BuildAt(c.Value); }
             }
@@ -264,6 +330,11 @@ public partial class CampusWalker : Node3D
     private Cell corridor = CampusGrid.Entrance;
     private Node3D[] bones;
     private float phase;
+    public void Rebind(Employee e, Pupil p)
+    {
+        if (ReferenceEquals(employee, e) && ReferenceEquals(pupil, p)) return;
+        employee = e; pupil = p; route.Clear(); destination = -1; lastSlot = -99;
+    }
     public void Initialize(RektorApp owner, int number, Employee e, Pupil p, Node3D[] limbs)
     {
         app = owner; id = number; employee = e; pupil = p; bones = limbs;
@@ -277,7 +348,7 @@ public partial class CampusWalker : Node3D
     }
     public override void _Process(double delta)
     {
-        if (app.Menu) return;
+        if (app.Menu || app.Campus.BuildPending) return;
         int slot = SchoolSimulation.LessonSlot(app.State.ClockMinute);
         if (slot != lastSlot || destination < 0) { lastSlot = slot; Plan(); }
         bool moving = false;

@@ -9,7 +9,7 @@ import tarfile
 import urllib.request
 import zipfile
 
-VERSION = '4.5.1'
+VERSION = '4.7.2'
 SDK_VERSIONS = ('8.0.419', '9.0.318')
 
 def download(url, destination, expected=None):
@@ -70,7 +70,7 @@ def main():
                     path = root / entry.filename
                     if path.is_file() and entry.external_attr >> 16:
                         path.chmod(entry.external_attr >> 16)
-    engine = next(root.glob(f'Godot_v{VERSION}-stable_mono_linux_x86_64/Godot*'))
+    engine = next(p for p in root.glob(f'Godot_v{VERSION}-stable_mono_linux_x86_64/Godot*') if p.is_file() and p.name.endswith('.x86_64'))
     engine.chmod(0o755)
     if args.dotnet:
         sdk_root = root.parent / 'dotnet'

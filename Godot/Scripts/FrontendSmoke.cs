@@ -16,6 +16,7 @@ public static class FrontendSmoke
         {
             await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
             Check(app.Menu && app.UI.IsInsideTree() && app.Campus.Camera.Current, "scene boot and main menu");
+            Check(!app.Campus.WorldBuilt && app.GetViewport().Disable3D, "main menu has no allocated campus or active 3D renderer");
             app.UI.TestClick("campaign"); app.UI.TestClick("new1"); app.UI.TestClick("difficulty1");
             app.UI.TestClick("gender2"); app.UI.TestClick("hair0"); app.UI.TestClick("directorDone");
             app.UI.TestClick("storyTeam"); app.UI.TestClick("hire0");
@@ -25,6 +26,11 @@ public static class FrontendSmoke
             app.ChooseBuild(RoomKind.Staffroom); app.BuildAt(new Cell(15, 6));
             Check(app.Sim.Count(RoomKind.Staffroom) == 1, "connected room construction");
             app.ChooseBuild(null);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            ulong initialRoom = app.Campus.RoomIdentity(1);
+            int initialBuilds = app.Campus.RoomVisualBuilds;
+            Check(initialRoom != 0 && app.Campus.WorldBuilt && !app.Campus.BuildPending, "deferred campus creation and coalesced startup");
             for (int i = 0; i < 40; i++)
             {
                 if (app.State.PendingEvent >= 0) { app.UI.Pending(); app.UI.TestClick("event2"); }
@@ -33,12 +39,16 @@ public static class FrontendSmoke
             }
             if (app.State.PendingEvent >= 0) { app.UI.Pending(); app.UI.TestClick("event2"); }
             Check(app.State.Day == 41 && !app.State.GameOver && SchoolSimulation.ValidateSave(app.State), "forty school days events and state invariants");
+            Check(app.Campus.RoomIdentity(1) == initialRoom && app.Campus.RoomVisualBuilds == initialBuilds, "daily simulation reuses unchanged room geometry");
             var serialized = RektorApp.Encode(app.State); var decoded = RektorApp.Decode(serialized);
             Check(SchoolSimulation.ValidateSave(decoded) && decoded.Pupils.Count == app.State.Pupils.Count && decoded.Classes[0].Week.SequenceEqual(app.State.Classes[0].Week), "Godot source-generated save serialization");
             Check(app.Save(false, true), "native save write");
             Check(app.Saves.Load(1, out _)?.Day == 41, "native save read");
             for (int tab = 0; tab < 8; tab++) { app.UI.ShowManagement(tab); await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame); }
             Check(true, "all eight management views instantiated");
+            app.UI.CloseModal(); app.UI.Hud(); app.UI.TestClick("view"); app.UI.TestClick("roadmap"); app.UI.CloseModal();
+            app.UI.TestClick("view"); app.UI.TestClick("towerGuide"); app.UI.CloseModal();
+            Check(true, "Mara chapter roadmap and tower construction guide accessible");
             for (int slot = 2; slot <= 6; slot++)
             {
                 app.NewCampaign(slot, (Difficulty)((slot - 2) % 3), slot == 6 ? GameMode.Sandbox : GameMode.Campaign, "Smoke " + slot);
@@ -48,12 +58,43 @@ public static class FrontendSmoke
             app.UI.ShowManagement(1); app.UI.TestClick("hire0");
             app.ChooseBuild(RoomKind.Classroom); app.BuildAt(new Cell(16, 10));
             Check(app.Sim.Sandbox && app.State.Cash == 0 && app.Sim.Count(RoomKind.Classroom) == 2, "sandbox infinite funds construction");
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            ulong baseRoom = app.Campus.RoomIdentity(1), upgradedRoom = app.Campus.RoomIdentity(2);
             app.Act(app.Sim.BuyRoomItem(2, RoomItem.DeskRow1));
             Check(app.Sim.RoomSeats(app.State.Rooms.First(r => r.Id == 2)) == 22, "functional room upgrade and seats");
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(app.Campus.RoomIdentity(1) == baseRoom && app.Campus.RoomIdentity(2) != upgradedRoom, "room purchase refreshes only the changed room");
             Check(app.Saves.Load(1, out _)?.Day == 41, "other saves preserved");
             app.ReturnToMenu(); Check(app.Load(1) && app.State.Day == 41 && app.State.Difficulty == Difficulty.Standard, "continue preserves campaign and difficulty");
             app.UI.CloseModal(); app.SetFloor(2); app.Campus.Orbit(); app.Campus.Zoom(-3); app.SetFloor(0);
             Check(app.Campus.Pick(app.Campus.Camera.UnprojectPosition(new Vector3(16.5f, .15f, 8.5f)))?.Equals(new Cell(16, 8)) == true, "camera projection and build picking");
+            for (int i = 0; i < 5; i++)
+            {
+                app.ReturnToMenu();
+                Check(app.GetViewport().Disable3D, "menu suspends 3D cycle " + i);
+                Check(app.Load(1) && app.State.Day == 41, "save continue cycle " + i);
+                app.UI.CloseModal();
+                await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+                await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+            app.NewCampaign(6, Difficulty.Standard, GameMode.Sandbox, "Tower regression");
+            app.CompleteDirector(new() { Name = "Tower", Gender = "Diverse", Hair = "Brown" }); app.UI.CloseModal();
+            Check(app.Sim.Hire(0).Success && app.Sim.Build(RoomKind.Staircase, 16, 10).Success, "tower foundation through shared rules");
+            for (int floor = 1; floor < 6; floor++)
+            {
+                if (!app.Sim.Build(RoomKind.Staircase, 16, 10, false, floor).Success) throw new InvalidOperationException("Tower staircase " + floor);
+                for (int x = 16; x >= 12; x--) if (!app.Sim.Build(RoomKind.Corridor, x, 9, false, floor).Success) throw new InvalidOperationException("Tower corridor");
+                if (!app.Sim.Build(RoomKind.Classroom, 12, 10, false, floor).Success) throw new InvalidOperationException("Tower classroom");
+            }
+            app.Campus.Rebuild(); app.SetFloor(5);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(app.Campus.VisualRoomCount == app.State.Rooms.Count && app.State.Classes.Count == 6 && SchoolSimulation.ValidateSave(app.State), "all six floors rendered without lost rooms or invalid saves");
+            Check(app.Campus.VisualPeopleCount <= 57 && app.Save(false, true), "bounded displayed population and six-floor save");
+            app.ReturnToMenu(); app.UI.TestClick("diagnostics"); app.UI.CloseModal();
+            Check(app.Diagnostics.Report().Contains("campus-ready"), "persistent local startup diagnostics");
             GD.Print($"GODOT_SMOKE_PASS {checks} checks"); app.GetTree().Quit(0);
         }
         catch (Exception e) { GD.PushError("GODOT_SMOKE_FAIL " + e); app.GetTree().Quit(1); }

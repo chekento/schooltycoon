@@ -4,7 +4,7 @@ config_version=5
 [application]
 config/name="Rektor"
 run/main_scene="res://Main.tscn"
-config/features=PackedStringArray("4.5", "C#", "GL Compatibility")
+config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 config/icon="res://Art/icon.svg"
 
 [display]
@@ -25,6 +25,7 @@ textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 textures/vram_compression/import_s3tc_bptc=true
 environment/defaults/default_clear_color=Color(0.82, 0.9, 0.86, 1)
+shader_compiler/shader_cache/enabled.android=false
 
 [input_devices]
 pointing/emulate_touch_from_mouse=false
