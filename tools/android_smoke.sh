@@ -4,7 +4,7 @@ mkdir -p captures
 package=cloud.kosch.rektor.godot
 activity=""
 logfile=android-smoke.log
-failures='GODOT_SMOKE_FAIL|REKTOR_TOUCH_FAIL|REKTOR_ACTION_FAIL|FATAL EXCEPTION|Fatal signal|oom-kill:.*ch.rektor.godot'
+failures='GODOT_SMOKE_FAIL|REKTOR_TOUCH_FAIL|REKTOR_ACTION_FAIL|FATAL EXCEPTION|Fatal signal|FORTIFY:|oom-kill:.*ch.rektor.godot'
 
 wait_log() {
   local pattern="$1"
@@ -27,6 +27,7 @@ tap_public() {
   local position tap_x tap_y
   position=$(awk -v id="$id" '$0 ~ "REKTOR_UI " id " " {print $(NF-1),$NF}' "$logfile" | tail -1 | tr -d '\r')
   read -r tap_x tap_y <<< "$position"
+  echo "Tap public $id at $tap_x $tap_y"
   adb logcat -c
   adb shell input tap "$tap_x" "$tap_y"
 }

@@ -204,10 +204,11 @@ public partial class RektorApp : Node3D
     }
     public override void _Notification(int what)
     {
-        if (what == NotificationApplicationPaused) { Paused = true; Campus?.HideCampus(); Save(false, true); if (Diagnostics != null) { ApplySettings(); Diagnostics.Clean(); } }
+        if (what == NotificationApplicationPaused) { Diagnostics?.Stage("application-paused"); Paused = true; Campus?.HideCampus(); Save(false, true); if (Diagnostics != null) { ApplySettings(); Diagnostics.Clean(); } }
         if (what == NotificationApplicationResumed) { Diagnostics?.Stage(Menu ? "menu-resumed" : "campus-resumed"); if (!Menu && State.HasDirector) Campus?.Rebuild(); }
         if (what == NotificationWMCloseRequest || what == NotificationWMGoBackRequest)
         {
+            Diagnostics?.Stage(what == NotificationWMCloseRequest ? "window-close-request" : "back-request");
             if (UI == null) return;
             if (UI.ModalOpen) UI.Back();
             else if (!Menu) ReturnToMenu();

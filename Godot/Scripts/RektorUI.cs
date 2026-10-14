@@ -48,7 +48,7 @@ public partial class RektorUI : CanvasLayer
         GetViewport().SizeChanged += SafeArea; SafeArea(); MainMenu();
         toast = new Label { Name = "Toast", HorizontalAlignment = HorizontalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart, MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
         root.AddChild(toast); toast.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomWide);
-        toast.OffsetLeft = 32; toast.OffsetRight = -32; toast.OffsetTop = -130; toast.OffsetBottom = -85;
+        toast.OffsetLeft = 32; toast.OffsetRight = -32; toast.OffsetTop = -(Tap + 145); toast.OffsetBottom = -(Tap + 100);
         toast.AddThemeColorOverride("font_color", new Color("fff7e3")); toast.AddThemeColorOverride("font_shadow_color", Ink); toast.AddThemeConstantOverride("shadow_offset_x", 2); toast.AddThemeConstantOverride("shadow_offset_y", 2);
     }
     private void SafeArea()
@@ -613,6 +613,6 @@ public partial class RektorUI : CanvasLayer
             });
         }
     }
-    public void Toast(string message) { if (toast == null) { GD.Print(message); return; } toast.Text = message; toast.Visible = true; toastTime = 4; }
-    public override void _Process(double delta) { if (toastTime > 0 && (toastTime -= delta) <= 0) toast.Visible = false; }
+    public void Toast(string message) { if (toast == null) { GD.Print(message); return; } toast.Text = message; toast.Visible = true; toastTime = 4; if (modeLabel != null) modeLabel.Visible = false; }
+    public override void _Process(double delta) { if (toastTime > 0 && (toastTime -= delta) <= 0) { toast.Visible = false; if (modeLabel != null) modeLabel.Visible = true; } }
 }
