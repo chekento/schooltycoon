@@ -21,6 +21,15 @@ wait_log() {
 check_alive() {
   adb shell pidof "$package" | tr -d '\r' | grep -q '[0-9]'
 }
+tap_public() {
+  local id="$1"
+  wait_log "REKTOR_UI $id [0-9]+ [0-9]+"
+  local position tap_x tap_y
+  position=$(awk -v id="$id" '$0 ~ "REKTOR_UI " id " " {print $(NF-1),$NF}' "$logfile" | tail -1 | tr -d '\r')
+  read -r tap_x tap_y <<< "$position"
+  adb logcat -c
+  adb shell input tap "$tap_x" "$tap_y"
+}
 adb install --no-incremental -r Builds/Android/Rektor-0.7.0-godot.apk
 activity=$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$package" | tr -d '\r' | tail -1)
 case "$activity" in "$package"/*) echo "Launcher component: $activity" ;; *) echo 'No exported launcher activity found' >&2; exit 1 ;; esac
@@ -36,16 +45,17 @@ for launch in 1 2 3; do
   echo "PASS normal cold launch $launch"
 done
 adb exec-out screencap -p > captures/android-menu.png
-adb shell am force-stop "$package"
-adb logcat -c
-adb shell am start -W -n "$activity" --esa command_line_params '--,--smoke-test'
+tap_public diagnostics
+tap_public selfCheck
 wait_log 'GODOT_SMOKE_PASS 38 checks'
 grep 'GODOT_SMOKE_PASS' "$logfile" > android-domain-result.log
 
 # Drive actual GUI hit-testing with Android input, not emitted button signals.
 adb shell am force-stop "$package"
 adb logcat -c
-adb shell am start -W -n "$activity" --esa command_line_params '--,--touch-check'
+adb shell am start -W -n "$activity"
+tap_public diagnostics
+tap_public touchCheck
 for target in campaign new1 difficulty1 gender2 hair0 directorDone storyTeam hire0 menu campaign continue1; do
   wait_log "REKTOR_TOUCH $target [0-9]+ [0-9]+"
   position=$(awk -v id="$target" '$0 ~ "REKTOR_TOUCH " id " " {print $(NF-1),$NF}' "$logfile" | tail -1 | tr -d '\r')

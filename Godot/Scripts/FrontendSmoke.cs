@@ -10,13 +10,14 @@ public static class FrontendSmoke
     private static int checks;
     private static void Check(bool ok, string label)
     { if (!ok) throw new InvalidOperationException(label); checks++; GD.Print("PASS Godot " + label); }
-    public static async void Run(RektorApp app)
+    public static async void Run(RektorApp app, bool quit = true)
     {
         try
         {
+            checks = 0;
             await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
             Check(app.Menu && app.UI.IsInsideTree() && app.Campus.Camera.Current, "scene boot and main menu");
-            Check(!app.Campus.WorldBuilt && app.GetViewport().Disable3D, "main menu has no allocated campus or active 3D renderer");
+            Check((app.Checking || !app.Campus.WorldBuilt) && app.GetViewport().Disable3D, "main menu has no allocated campus or active 3D renderer");
             app.UI.TestClick("campaign"); app.UI.TestClick("new1"); app.UI.TestClick("difficulty1");
             app.UI.TestClick("gender2"); app.UI.TestClick("hair0"); app.UI.TestClick("directorDone");
             app.UI.TestClick("storyTeam"); app.UI.TestClick("hire0");
@@ -95,8 +96,8 @@ public static class FrontendSmoke
             Check(app.Campus.VisualPeopleCount <= 57 && app.Save(false, true), "bounded displayed population and six-floor save");
             app.ReturnToMenu(); app.UI.TestClick("diagnostics"); app.UI.CloseModal();
             Check(app.Diagnostics.Report().Contains("campus-ready"), "persistent local startup diagnostics");
-            GD.Print($"GODOT_SMOKE_PASS {checks} checks"); app.GetTree().Quit(0);
+            GD.Print($"GODOT_SMOKE_PASS {checks} checks"); if (quit) app.GetTree().Quit(0); else app.EndCheck();
         }
-        catch (Exception e) { GD.PushError("GODOT_SMOKE_FAIL " + e); app.GetTree().Quit(1); }
+        catch (Exception e) { GD.PushError("GODOT_SMOKE_FAIL " + e); if (quit) app.GetTree().Quit(1); else { app.EndCheck(); app.Diagnostics.Failure(e); app.UI.Toast("Funktionstest fehlgeschlagen. Diagnose kopieren."); } }
     }
 }

@@ -137,6 +137,7 @@ public partial class RektorUI : CanvasLayer
         Text(v, "REKTOR", 72, true);
         Text(v, app.T("Ein Campus. Tausend Möglichkeiten.", "One campus. A thousand possibilities."), 26);
         Text(v, app.T("Vom ersten Klassenzimmer zur Schule deiner Träume.", "From your first classroom to the school of your dreams."), 22);
+        if (app.Checking) Btn(v, app.T("Prüfmodus beenden", "Exit diagnostic school"), app.EndCheck, true);
         if (app.Settings.LastSlot > 0 && app.Saves.Load(app.Settings.LastSlot, out _) is SchoolState last)
             Btn(v, app.T("Zuletzt gespielt: ", "Last played: ") + last.SchoolName, () => app.Load(app.Settings.LastSlot), true, "resumeLast");
         Btn(v, app.T("Kampagne spielen", "Play campaign"), () => Slots(GameMode.Campaign), true, "campaign");
@@ -148,13 +149,34 @@ public partial class RektorUI : CanvasLayer
         Btn(v, app.T("Hilfe / Startdiagnose", "Help / startup diagnostics"), Diagnostics, false, "diagnostics");
         if (app.Diagnostics.Interrupted) Text(v, app.T("Der letzte Lauf wurde unterbrochen. Android startet mit sparsamer Grafik; deine Spielstände bleiben erhalten.", "The previous session was interrupted. Android starts with low graphics; your saves are preserved."), 18);
         Text(v, app.T("Godot 4 · Version 0.7.0\nDas Unity-Projekt bleibt im Repository erhalten.", "Godot 4 · Version 0.7.0\nThe Unity project remains in the repository."), 18);
+        var help = Btn(screen, "?", Diagnostics, false, "diagnostics"); help.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        help.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomLeft); help.OffsetLeft = 28; help.OffsetRight = 28 + Tap; help.OffsetTop = -28 - Tap; help.OffsetBottom = -28;
+        PrintDiagnosticTargets();
     }
     private void Diagnostics()
     {
         OpenModal(app.T("Hilfe / Startdiagnose", "Help / startup diagnostics"), app.T("Bei einem erneuten Abbruch kannst du diese lokale Diagnose kopieren. Sie enthält keine Schülernamen oder Spielstand-Inhalte.", "If the app closes again, copy this local report. It contains no pupil names or save contents."));
+        if (app.Menu && !app.Checking)
+        {
+            Text(modalBody, app.T("Die folgenden Prüfungen verwenden nur temporäre Testschulen. Deine echten Spielstände und Einstellungen bleiben erhalten.", "The checks below use temporary schools. Your real saves and settings are preserved."), 18);
+            Btn(modalBody, app.T("Schulbetrieb prüfen", "Check school simulation"), () => app.BeginCheck(false), false, "selfCheck");
+            Btn(modalBody, app.T("Bedienung prüfen · den sichtbaren Schritten folgen", "Check controls · follow the visible steps"), () => app.BeginCheck(true), false, "touchCheck");
+        }
+        PrintDiagnosticTargets();
         Text(modalBody, app.Diagnostics.Report(), 18);
         Btn(modalBody, app.T("Diagnose kopieren", "Copy diagnostics"), () => { DisplayServer.ClipboardSet(app.Diagnostics.Report()); Toast(app.T("Diagnose kopiert.", "Diagnostics copied.")); });
         Btn(modalBody, app.T("Sparsamen Grafikstart aktivieren", "Use low graphics"), () => { app.Settings.Graphics = 0; app.Settings.Fps = 30; app.ApplySettings(); app.Campus.Rebuild(); CloseModal(); });
+    }
+    private async void PrintDiagnosticTargets()
+    {
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        foreach (string id in new[] { "diagnostics", "selfCheck", "touchCheck" })
+        {
+            var button = TestButton(id); if (button == null) continue;
+            var p = GetViewport().GetScreenTransform() * button.GetGlobalRect().GetCenter();
+            GD.Print($"REKTOR_UI {id} {Mathf.RoundToInt(p.X)} {Mathf.RoundToInt(p.Y)}");
+        }
     }
     private void About()
     {

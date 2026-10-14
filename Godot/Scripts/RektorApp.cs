@@ -38,6 +38,31 @@ public partial class RektorApp : Node3D
     private double minute = 480, uiTick;
     private string saveFolder, settingsPath;
     private bool smoke;
+    private Action restoreCheck;
+    public bool Checking => restoreCheck != null;
+    public void BeginCheck(bool touch)
+    {
+        if (!Menu || Checking) return;
+        var originalFolder = saveFolder; var originalPath = settingsPath; var originalSaves = Saves;
+        var originalSettings = Settings; var originalSim = Sim; var originalSlot = Slot; var originalDiagnostics = Diagnostics;
+        restoreCheck = () => { saveFolder = originalFolder; settingsPath = originalPath; Saves = originalSaves; Settings = originalSettings; Sim = originalSim; Slot = originalSlot; Diagnostics = originalDiagnostics; };
+        saveFolder = ProjectSettings.GlobalizePath("user://checks/" + Guid.NewGuid().ToString("N"));
+        settingsPath = Path.Combine(saveFolder, "settings.json");
+        Saves = new SaveArchive(saveFolder, Encode, Decode);
+        Settings = JsonSerializer.Deserialize(JsonSerializer.Serialize(originalSettings, SaveJson.Default.Preferences), SaveJson.Default.Preferences);
+        Settings.LastSlot = 0; Settings.ResumeSession = false;
+        Diagnostics = new RuntimeDiagnostics(Path.Combine(saveFolder, "diagnostics"));
+        Sim = new(SchoolSimulation.CreateCampaign(Difficulty.Standard)); Slot = 0; Menu = Paused = true;
+        Campus.HideCampus(); UI.MainMenu();
+        if (touch) TouchLifecycleCheck.Run(this); else FrontendSmoke.Run(this, false);
+    }
+    public void EndCheck()
+    {
+        if (restoreCheck == null) return;
+        Diagnostics.Clean(); var restore = restoreCheck; restoreCheck = null; restore();
+        Menu = Paused = true; BuildKind = null; Demolition = false; Campus.HideCampus(); UI.MainMenu();
+        GD.Print("REKTOR_CHECK_RESTORED");
+    }
 
     public override void _Ready()
     {

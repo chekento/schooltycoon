@@ -22,11 +22,14 @@ public static class TouchLifecycleCheck
             {
                 await Wait(() => app.UI.TestButton(id) != null, id);
                 var button = app.UI.TestButton(id);
+                await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+                await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
                 app.UI.TestReveal(button);
                 await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
                 await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
                 var point = app.GetViewport().GetScreenTransform() * button.GetGlobalRect().GetCenter();
                 GD.Print($"REKTOR_TOUCH {id} {Mathf.RoundToInt(point.X)} {Mathf.RoundToInt(point.Y)}");
+                app.UI.Toast(app.T("Prüfschritt: ", "Check step: ") + button.Text);
                 await Wait(changed, id);
             }
             await Tap("campaign", () => app.UI.TestButton("new1") != null);
