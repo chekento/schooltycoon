@@ -32,6 +32,8 @@ tap_public() {
   adb shell input tap "$tap_x" "$tap_y"
 }
 adb install --no-incremental -r Builds/Android/Rektor-0.7.0-godot.apk
+# A fresh test device must acknowledge Android's fullscreen tutorial before GUI taps.
+adb shell settings put secure immersive_mode_confirmations confirmed
 activity=$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$package" | tr -d '\r' | tail -1)
 case "$activity" in "$package"/*) echo "Launcher component: $activity" ;; *) echo 'No exported launcher activity found' >&2; exit 1 ;; esac
 

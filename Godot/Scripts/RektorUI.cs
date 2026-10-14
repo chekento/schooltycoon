@@ -17,6 +17,7 @@ public partial class RektorUI : CanvasLayer
     private bool buildOpen, manageOpen;
     private readonly Avatar director = new();
     private double toastTime;
+    private bool testSignal;
     private static readonly Color Ink = new("31574e"), Muted = new("668278"), Teal = new("598c7b");
     private float W => GetViewport().GetVisibleRect().Size.X;
     private float H => GetViewport().GetVisibleRect().Size.Y;
@@ -92,11 +93,22 @@ public partial class RektorUI : CanvasLayer
             b.AddThemeStyleboxOverride("normal", Box("598c7b", 14)); b.AddThemeStyleboxOverride("hover", Box("477b6b", 14)); b.AddThemeStyleboxOverride("pressed", Box("3b6d5e", 14));
             foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) b.AddThemeColorOverride(state, new Color("fff9ed"));
         }
-        b.Pressed += () =>
+        bool pending = false;
+        void RunAction()
         {
-            try { app.Audio.Click(); action(); }
+            pending = false;
+            if (!GodotObject.IsInstanceValid(b) || b.IsQueuedForDeletion()) return;
+            try
+            {
+                app.Diagnostics.Stage("ui-before-audio:" + (id ?? "action"));
+                app.Audio.Click();
+                app.Diagnostics.Stage("ui-before-action:" + (id ?? "action"));
+                action();
+                app.Diagnostics.Stage("ui-complete:" + (id ?? "action"));
+            }
             catch (Exception error) { app.Diagnostics.Failure(error); Toast(app.T("Aktion konnte nicht abgeschlossen werden. Diagnose im Hauptmenü öffnen.", "Action could not finish. Open diagnostics from the main menu.")); }
-        }; parent.AddChild(b);
+        }
+        b.Pressed += () => { if (pending) return; if (testSignal) RunAction(); else { pending = true; Callable.From(RunAction).CallDeferred(); } }; parent.AddChild(b);
         if (id != null) buttons[id] = b;
         return b;
     }
@@ -108,7 +120,8 @@ public partial class RektorUI : CanvasLayer
     private void Card(Control parent, string title, string body)
     { var v = Column(Panel(parent, "eef0e3")); Text(v, title, 25, true); if (!string.IsNullOrEmpty(body)) Text(v, body, 20); }
     public void TestClick(string id)
-    { if (!buttons.TryGetValue(id, out var b) || b.Disabled) throw new InvalidOperationException("Unavailable UI action: " + id); b.EmitSignal(Button.SignalName.Pressed); }
+    { if (!buttons.TryGetValue(id, out var b) || b.Disabled) throw new InvalidOperationException("Unavailable UI action: " + id); testSignal = true; try { b.EmitSignal(Button.SignalName.Pressed); } finally { testSignal = false; } }
+    public Vector2 PhysicalPoint(Vector2 logical) => GetViewport().GetScreenTransform() * logical;
     public Button TestButton(string id) => buttons.TryGetValue(id, out var b) && GodotObject.IsInstanceValid(b) && !b.IsQueuedForDeletion() && b.IsVisibleInTree() ? b : null;
     public void TestReveal(Button button)
     {
