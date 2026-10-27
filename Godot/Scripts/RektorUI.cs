@@ -582,7 +582,7 @@ public partial class RektorUI : CanvasLayer
                 if (data.StartsWith("REKTOR 1\n"))
                 {
                     int first = data.IndexOf('\n'), second = data.IndexOf('\n', first + 1); if (second < 0) throw new InvalidDataException("Invalid save header");
-                    string payload = data[(second + 1)..]; string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+                    string payload = data[(second + 1)..]; string hash = RektorSaveHash.Hex(payload);
                     if (hash != data[(first + 1)..second]) throw new InvalidDataException("Checksum mismatch"); state = RektorApp.Decode(payload);
                 }
                 else state = RektorApp.Decode(data);

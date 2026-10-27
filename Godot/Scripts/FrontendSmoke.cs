@@ -16,6 +16,10 @@ public static class FrontendSmoke
         {
             checks = 0;
             await app.ToSignal(app.GetTree(), SceneTree.SignalName.ProcessFrame);
+            Check(RektorSaveHash.Hex("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                && RektorSaveHash.Hex("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "portable SHA256 empty and ASCII vectors");
+            Check(RektorSaveHash.Hex("Rektor · Schüler 🎓\n") == "a0b90a77dbffe3e36aafde9bdd10263a04bfde05ddec26ddc61595a668380792"
+                && RektorSaveHash.Hex(new string('a', 1000000)) == "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0", "portable SHA256 UTF8 and multi-block vectors");
             Check(app.Menu && app.UI.IsInsideTree() && app.Campus.Camera.Current, "scene boot and main menu");
             Check((app.Checking || !app.Campus.WorldBuilt) && app.GetViewport().Disable3D, "main menu has no allocated campus or active 3D renderer");
             app.UI.TestClick("campaign"); app.UI.TestClick("new1"); app.UI.TestClick("difficulty1");

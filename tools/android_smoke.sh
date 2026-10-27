@@ -6,6 +6,18 @@ activity=""
 logfile=android-smoke.log
 failures='GODOT_SMOKE_FAIL|REKTOR_TOUCH_FAIL|REKTOR_ACTION_FAIL|FATAL EXCEPTION|Fatal signal|FORTIFY:|oom-kill:.*ch.rektor.godot'
 
+capture_failure() {
+  local status=$?
+  if [ "$status" -ne 0 ]; then
+    sleep 3
+    adb logcat -b all -d > "$logfile" || true
+    adb shell dumpsys dropbox --print data_app_native_crash > android-crash-report.log || true
+    grep -E 'godot|FORTIFY|Fatal signal|DOTNET|mono|crash' "$logfile" | tail -100 || true
+  fi
+  exit "$status"
+}
+trap capture_failure EXIT
+
 wait_log() {
   local pattern="$1"
   for attempt in {1..180}; do
@@ -50,7 +62,7 @@ done
 adb exec-out screencap -p > captures/android-menu.png
 tap_public diagnostics
 tap_public selfCheck
-wait_log 'GODOT_SMOKE_PASS 38 checks'
+wait_log 'GODOT_SMOKE_PASS 40 checks'
 grep 'GODOT_SMOKE_PASS' "$logfile" > android-domain-result.log
 
 # Drive actual GUI hit-testing with Android input, not emitted button signals.

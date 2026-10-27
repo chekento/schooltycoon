@@ -41,7 +41,7 @@ jobs:
         run: |
           set -o pipefail
           "$GODOT" --headless --path Godot -- --smoke-test | tee godot-smoke.log
-          grep -q 'GODOT_SMOKE_PASS 38 checks' godot-smoke.log
+          grep -q 'GODOT_SMOKE_PASS 40 checks' godot-smoke.log
       - name: Configure Android exporter
         run: '"$GODOT" --headless --path Godot --editor --script res://Build/ConfigureAndroid.gd'
       - name: Render actual Godot menu, campus and upgrade UI
@@ -145,6 +145,7 @@ jobs:
             android-domain-result.log
             android-touch-result.log
             android-memory.log
+            android-crash-report.log
           if-no-files-found: ignore
   publish:
     if: github.ref == 'refs/heads/main'
@@ -178,7 +179,7 @@ jobs:
             Optimized release build signed with the same preview identity as 0.6; install as an update to preserve saves.
             Lazy 3D startup, incremental room/actor updates, safer mobile graphics, session resume and local startup diagnostics.
             Mara chapter roadmap, school tower guidance and visible room item effects.
-            Signature verified; 38 scene checks, three cold launches, 11 real taps and background/resume checks pass on Android 11 and 16 emulators with 2 GB RAM.
+            Signature verified; 40 scene checks, three cold launches, 11 real taps and background/resume checks pass on Android 11 and 16 emulators with 2 GB RAM.
             A physical Samsung/ARM64 device has not been tested here; copy the local diagnostic if a device-specific crash remains.
             Preview signed with the intentionally public development key, not a Play Store release identity.
             Unity remains in the repository and on archive/unity-0.5. See docs/GODOT.md.
