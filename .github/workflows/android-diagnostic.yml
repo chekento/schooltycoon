@@ -1,0 +1,73 @@
+name: Android renderer diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/android-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  compare:
+    name: API 36 ${{ matrix.target }} ${{ matrix.gpu }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: google_apis
+            gpu: swangle
+          - target: google_apis
+            gpu: swiftshader
+          - target: default
+            gpu: swangle
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Rektor-0.7.0-Godot-Android
+          path: Builds/Android
+          run-id: 40603139487
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install official Android tools
+        run: |
+          python3 tools/setup_android.py
+          echo "ANDROID_HOME=$GITHUB_WORKSPACE/.toolchain/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/.toolchain/android-sdk" >> "$GITHUB_ENV"
+      - run: sudo chmod 666 /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: ${{ matrix.target }}
+          arch: x86_64
+          ram-size: 2048M
+          disk-size: 4096M
+          disable-linux-hw-accel: false
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-window -no-snapshot -accel on -gpu ${{ matrix.gpu }} -noaudio -no-boot-anim -camera-back none -memory 2048 -cores 2
+          script: |
+            bash tools/android_smoke.sh &
+            smoke=$!
+            while kill -0 "$smoke" 2>/dev/null; do
+              date -u >> android-process-state.log
+              pid=$(adb shell pidof cloud.kosch.rektor.godot | tr -d '\r')
+              if [ -n "$pid" ]; then
+                adb shell ps -T -p "$pid" -o PID,TID,NAME >> android-process-state.log 2>&1 || true
+                adb shell dumpsys meminfo cloud.kosch.rektor.godot | tail -25 >> android-process-state.log 2>&1 || true
+              fi
+              sleep 2
+            done
+            wait "$smoke"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnosis-${{ matrix.target }}-${{ matrix.gpu }}
+          path: |
+            android-*.log
+            captures/
