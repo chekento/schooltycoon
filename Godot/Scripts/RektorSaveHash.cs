@@ -13,7 +13,7 @@ public sealed class RektorSaveHash : IDisposable
     public byte[] ComputeHash(byte[] data)
     {
         using var context = new HashingContext();
-        if (context.Start(HashingContext.HashType.Sha256) != Error.Ok || context.Update(data) != Error.Ok)
+        if (context.Start(HashingContext.HashType.Sha256) != Error.Ok || (data.Length > 0 && context.Update(data) != Error.Ok))
             throw new InvalidOperationException("Could not calculate save checksum");
         return context.Finish();
     }
