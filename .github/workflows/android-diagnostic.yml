@@ -2,11 +2,14 @@ name: Android renderer diagnosis
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/android-diagnostic.yml']
+    paths: ['.github/workflows/android-diagnostic.yml', 'tools/android_diagnose.sh']
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
+concurrency:
+  group: android-diagnosis-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   compare:
     name: API 36 ${{ matrix.target }} ${{ matrix.gpu }}
@@ -51,19 +54,7 @@ jobs:
           emulator-boot-timeout: 600
           disable-animations: true
           emulator-options: -no-window -no-snapshot -accel on -gpu ${{ matrix.gpu }} -noaudio -no-boot-anim -camera-back none -memory 2048 -cores 2
-          script: |
-            bash tools/android_smoke.sh &
-            smoke=$!
-            while kill -0 "$smoke" 2>/dev/null; do
-              date -u >> android-process-state.log
-              pid=$(adb shell pidof cloud.kosch.rektor.godot | tr -d '\r')
-              if [ -n "$pid" ]; then
-                adb shell ps -T -p "$pid" -o PID,TID,NAME >> android-process-state.log 2>&1 || true
-                adb shell dumpsys meminfo cloud.kosch.rektor.godot | tail -25 >> android-process-state.log 2>&1 || true
-              fi
-              sleep 2
-            done
-            wait "$smoke"
+          script: bash tools/android_diagnose.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

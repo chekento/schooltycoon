@@ -74,6 +74,12 @@ public partial class RektorApp : Node3D
         Diagnostics = new RuntimeDiagnostics(Path.Combine(saveFolder, "diagnostics"));
         try { if (File.Exists(settingsPath)) Settings = JsonSerializer.Deserialize(File.ReadAllText(settingsPath), SaveJson.Default.Preferences) ?? new(); }
         catch (Exception e) { GD.PushWarning("Settings recovered to defaults: " + e.Message); }
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
+            if (args.ExceptionObject is Exception error) Diagnostics.Failure(error);
+            else GD.PushError("REKTOR_UNHANDLED " + args.ExceptionObject);
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, args) => Diagnostics.Failure(args.Exception);
         NormalizeSettings();
         if (Diagnostics.Interrupted && OS.HasFeature("android")) { Settings.Graphics = 0; Settings.Fps = 30; }
         Saves = new SaveArchive(saveFolder, Encode, Decode);
