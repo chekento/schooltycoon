@@ -74,6 +74,7 @@ public partial class RektorApp : Node3D
         Diagnostics = new RuntimeDiagnostics(Path.Combine(saveFolder, "diagnostics"));
         try { if (File.Exists(settingsPath)) Settings = JsonSerializer.Deserialize(File.ReadAllText(settingsPath), SaveJson.Default.Preferences) ?? new(); }
         catch (Exception e) { GD.PushWarning("Settings recovered to defaults: " + e.Message); }
+        Diagnostics.CaptureNativeErrors();
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             if (args.ExceptionObject is Exception error) Diagnostics.Failure(error);

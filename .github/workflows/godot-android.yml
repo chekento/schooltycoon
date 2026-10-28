@@ -146,6 +146,7 @@ jobs:
             android-touch-result.log
             android-memory.log
             android-crash-report.log
+            android-recovery.log
           if-no-files-found: ignore
   publish:
     if: github.ref == 'refs/heads/main'

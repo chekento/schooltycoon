@@ -12,6 +12,11 @@ capture_failure() {
     sleep 3
     adb logcat -b all -d > "$logfile" || true
     adb shell dumpsys dropbox --print data_app_native_crash > android-crash-report.log || true
+    if [ -n "$activity" ] && ! check_alive; then
+      adb shell am start -W -n "$activity" > android-recovery.log 2>&1 || true
+      sleep 5
+      adb logcat -d | grep 'REKTOR_PREVIOUS_NATIVE' >> android-recovery.log || true
+    fi
     grep -E 'godot|FORTIFY|Fatal signal|DOTNET|mono|crash' "$logfile" | tail -100 || true
   fi
   exit "$status"
