@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p Builds/Android
-          "$GODOT" --headless --path Godot --export-release Android ../Builds/Android/Rektor-0.7.0-godot.apk 2>&1 | tee godot-export.log
+          "$GODOT" --headless --path Godot --install-android-build-template --export-release Android ../Builds/Android/Rektor-0.7.0-godot.apk 2>&1 | tee godot-export.log
       - name: Preserve the Android activity during system resource updates
         run: |
           python3 tools/fix_android_manifest.py Builds/Android/Rektor-0.7.0-godot.apk /tmp/Rektor-unaligned.apk
