@@ -37,7 +37,7 @@ public sealed class RuntimeDiagnostics
                 foreach (string line in File.ReadAllText(nativeTrace).Split('\n'))
                     GD.Print("REKTOR_PREVIOUS_NATIVE " + line);
             }
-            using var file = new FileStream(nativeTrace, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+            using var file = new FileStream(nativeTrace, FileMode.Create, System.IO.FileAccess.Write, FileShare.ReadWrite);
             int descriptor = file.SafeFileHandle.DangerousGetHandle().ToInt32();
             if (DuplicateDescriptor(descriptor, 1) < 0 || DuplicateDescriptor(descriptor, 2) < 0)
                 throw new IOException("Native runtime diagnostic redirection failed");
