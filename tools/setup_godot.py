@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 
 VERSION = '4.7.2'
-SDK_VERSIONS = ('8.0.419', '9.0.318')
+SDK_VERSIONS = ('8.0.419', '10.0.403')
 # Official asset digests from godotengine/godot-builds 4.7.2-stable.
 SHA256 = {
     'mono_linux_x86_64.zip': '129f82db7bafd54ae14bb5bb284041c73860e8c7a009a3a026ca5e946cbff247',
